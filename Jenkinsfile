@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'cypress/browsers:node20.5.0-chrome112-ff112' // Node + Chrome + Firefox
+            args '-u root:root'
+        }
+    }
 
     parameters {
         choice(
@@ -17,6 +22,10 @@ pipeline {
             defaultValue: 'https://parabank.parasoft.com',
             description: 'Environment URL'
         )
+    }
+
+    environment {
+        CYPRESS_baseUrl = "${params.BASE_URL}"
     }
 
     stages {
@@ -70,18 +79,16 @@ pipeline {
             echo 'Cleaning up workspace...'
             cleanWs()
         }
-        failure {
-            echo 'Pipeline failed!'
-        }
         success {
             echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 }
 
-//
 // Helper function to run Cypress with proper args
-//
 def runCypress(browser, suite, baseUrl) {
     echo "Running ${suite} tests on ${browser} at ${baseUrl}"
     sh """
