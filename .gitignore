@@ -1,0 +1,16 @@
+# VSCode settings
+.vscode/
+*.code-workspace
+
+# Windows system files
+AppData/
+*.log
+*.tmp
+
+# Node modules
+node_modules/
+
+# Cypress downloads/screenshots
+cypress/downloads/
+cypress/screenshots/
+cypress/videos/
