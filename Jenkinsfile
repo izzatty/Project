@@ -1,60 +1,24 @@
 pipeline {
     agent {
         docker {
-            image 'cypress/browsers:node20.5.0-chrome112-ff112' // Node + Chrome + Firefox
+            image 'cypress/browsers:node20.5.0-chrome112-ff112'
             args '-u root:root'
         }
     }
 
     parameters {
-        choice(
-            name: 'TEST_SUITE',
-            choices: ['smoke', 'regression', 'full'],
-            description: 'Test Suite to Execute'
-        )
-        choice(
-            name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge', 'all'],
-            description: 'Browser Selection'
-        )
-        string(
-            name: 'BASE_URL',
-            defaultValue: 'https://parabank.parasoft.com',
-            description: 'Environment URL'
-        )
-    }
-
-    environment {
-        CYPRESS_baseUrl = "${params.BASE_URL}"
+        choice(name: 'TEST_SUITE', choices: ['smoke','regression','full'], description: 'Test Suite')
+        choice(name: 'BROWSER', choices: ['chrome','firefox','edge','all'], description: 'Browser Selection')
+        string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Base URL')
     }
 
     stages {
-        stage('Environment Setup') {
-            steps {
-                echo "Preparing environment for ${params.BASE_URL}"
-                script {
-                    if (params.BASE_URL.contains('staging')) {
-                        echo "Staging-specific setup"
-                    } else if (params.BASE_URL.contains('prod')) {
-                        echo "Production-specific setup"
-                    } else {
-                        echo "Default environment setup"
-                    }
-                }
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/izzatty/Project.git'
-            }
+        stage('Checkout') {
+            steps { git branch: 'main', url: 'https://github.com/izzatty/Project.git' }
         }
 
         stage('Install Dependencies') {
-            steps {
-                echo 'Installing dependencies...'
-                sh 'npm ci || npm install'
-            }
+            steps { sh 'npm ci || npm install' }
         }
 
         stage('Run Tests') {
@@ -62,12 +26,12 @@ pipeline {
                 script {
                     if (params.BROWSER == 'all') {
                         parallel(
-                            chrome: { runCypress('chrome', params.TEST_SUITE, params.BASE_URL) },
-                            firefox: { runCypress('firefox', params.TEST_SUITE, params.BASE_URL) },
-                            edge: { runCypress('edge', params.TEST_SUITE, params.BASE_URL) }
+                            chrome: { runCypress('chrome') },
+                            firefox: { runCypress('firefox') },
+                            edge: { runCypress('edge') }
                         )
                     } else {
-                        runCypress(params.BROWSER, params.TEST_SUITE, params.BASE_URL)
+                        runCypress(params.BROWSER)
                     }
                 }
             }
@@ -75,27 +39,10 @@ pipeline {
     }
 
     post {
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
+        always { cleanWs() }
     }
 }
 
-// Helper function to run Cypress with proper args
-def runCypress(browser, suite, baseUrl) {
-    echo "Running ${suite} tests on ${browser} at ${baseUrl}"
-    sh """
-        npx cypress run \
-          --browser ${browser} \
-          --env suite=${suite},baseUrl=${baseUrl} \
-          --reporter junit \
-          --reporter-options "mochaFile=cypress/results/${browser}-results.xml"
-    """
+def runCypress(browser) {
+    sh "npx cypress run --browser ${browser} --reporter junit --reporter-options 'mochaFile=results/${browser}-results.xml'"
 }
