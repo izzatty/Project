@@ -1,14 +1,14 @@
 pipeline {
-    agent {
-        // Use a Node image with Cypress pre-installed
-        docker { 
-            image 'cypress/base:20.5.0' // Node + npm
-            args '-u root:root'         // run as root to avoid permission issues
-        }
+    agent any
+
+    parameters {
+        choice(name: 'TEST_SUITE', choices: ['smoke', 'regression', 'full'], description: 'Test Suite to Execute')
+        choice(name: 'BROWSER', choices: ['chrome', 'firefox', 'edge', 'all'], description: 'Browser Selection')
+        string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Environment URL')
     }
 
     environment {
-        BASE_URL = 'https://parabank.parasoft.com'
+        BASE_URL = "${params.BASE_URL}"
     }
 
     stages {
@@ -25,23 +25,36 @@ pipeline {
             }
         }
 
-        stage('Run Cypress Tests') {
+        stage('Run Tests in Parallel') {
             steps {
-                echo 'Running Cypress tests...'
                 script {
-                    // Run Cypress for multiple browsers if needed
-                    def browsers = ['chrome', 'firefox', 'edge']
-                    parallel browsers.collectEntries { browser ->
-                        ["${browser}": {
-                            sh """
-                                npx cypress run \
-                                  --browser ${browser} \
-                                  --env baseUrl=${BASE_URL} \
-                                  --reporter junit \
-                                  --reporter-options "mochaFile=cypress/results/${browser}-results.xml"
-                            """
-                        }]
+                    // Determine which browsers to run
+                    def browsers = []
+                    if (params.BROWSER == 'all') {
+                        browsers = ['chrome', 'firefox', 'edge']
+                    } else {
+                        browsers = [params.BROWSER]
                     }
+
+                    // Prepare parallel steps
+                    def parallelSteps = [:]
+                    for (b in browsers) {
+                        parallelSteps[b] = {
+                            retry(2) { // Retry flaky tests
+                                echo "Running ${params.TEST_SUITE} tests on ${b}"
+                                sh """
+                                    npx cypress run \
+                                      --browser ${b} \
+                                      --env baseUrl=${BASE_URL},suite=${params.TEST_SUITE} \
+                                      --reporter junit \
+                                      --reporter-options "mochaFile=cypress/results/${b}-results.xml"
+                                """
+                            }
+                        }
+                    }
+
+                    // Execute all browsers in parallel
+                    parallel parallelSteps
                 }
             }
         }
