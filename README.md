@@ -16,16 +16,14 @@ This repository contains the Jenkins CI/CD pipeline, automation tests, and docum
 ## ⚙️ Setup Instructions
 
 ### 1. Clone the repository
-```bash ```
+
 git clone https://github.com/<your-username>/<repo-name>.git
 
 cd Project 
 
 ### 2. Jenkins Setup
 
-- Install Jenkins via Docker:
-  ```bash ```
-  docker-compose -f docker/docker-compose.yml up -d
+- Install Jenkins via Docker: docker-compose -f docker/docker-compose.yml up -d
 
 - Access Jenkins at: http://localhost:8080
 
