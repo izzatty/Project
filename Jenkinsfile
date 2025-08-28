@@ -38,8 +38,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/izzatty/Project',
-                    credentialsId: 'a2b5c49d-38be-4cff-a536-2b2e6a6f01d3'
+                    url: 'https://github.com/izzatty/Project'
             }
         }
 
