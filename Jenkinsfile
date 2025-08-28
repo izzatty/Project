@@ -43,7 +43,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                nodejs(nodeJSInstallationName: 'Node18') {
+                nodejs(nodeJSInstallationName: 'Node24') {
                     sh 'npm install'
                 }
             }
