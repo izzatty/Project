@@ -81,17 +81,17 @@ pipeline {
             steps {
                 echo 'Archiving test reports...'
                 publishHTML([
+                    allowMissing: true,              // FIXED
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
                     reportDir: 'cypress/reports/html',
                     reportFiles: 'index.html',
-                    reportName: 'Cypress Test Report',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true
+                    reportName: 'Cypress Test Report'
                 ])
                 junit 'cypress/results/*.xml'
                 archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
             }
         }
-    }
 
     post {
         always {
