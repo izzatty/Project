@@ -27,6 +27,7 @@ Install the following Jenkins plugins:
 - HTML Publisher (report publishing)
 - Build Monitor View (dashboard monitoring)
 - JUnit Plugin (test results)
+- Email (notifier)
 
 4. Creating a Pipeline
 1. Go to New Item → Pipeline.
