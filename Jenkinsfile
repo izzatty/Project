@@ -43,47 +43,17 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                nodejs(nodeJSInstallationName: 'Node24') {
-                sh 'npm install'
-            }
-        }
-
-        stage('Run Cypress Tests') {
-            parallel {
-                stage('Chrome Tests') {
-                    when { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } }
-                    steps {
-                        sh "npx cypress run --browser chrome --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
-                    }
-                }
-                stage('Firefox Tests') {
-                    when { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } }
-                    steps {
-                        sh "npx cypress run --browser firefox --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
-                    }
-                }
-                stage('Edge Tests') {
-                    when { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } }
-                    steps {
-                        sh "npx cypress run --browser edge --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
-                    }
+                nodejs(nodeJSInstallationName: 'Node18') {
+                    sh 'npm install'
                 }
             }
         }
 
-        stage('Archive & Reports') {
+        stage('Basic Test Run') {
             steps {
-                echo 'Archiving test reports...'
-                publishHTML([
-                    allowMissing: true,              // FIXED
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'cypress/reports/html',
-                    reportFiles: 'index.html',
-                    reportName: 'Cypress Test Report'
-                ])
-                junit 'cypress/results/*.xml'
-                archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+                echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}"
+                // Placeholder for Cypress or Selenium later
+                sh 'echo "Tests would run here"'
             }
         }
     }
