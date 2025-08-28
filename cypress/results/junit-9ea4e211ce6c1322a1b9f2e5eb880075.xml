@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="4.124" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2025-08-28T16:49:13" tests="0" file="cypress\e2e\01_parabank.cy.js" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="ParaBank smoke" timestamp="2025-08-28T16:49:13" tests="1" time="4.120" failures="0">
+    <testcase name="ParaBank smoke visits homepage and checks title" time="4.068" classname="visits homepage and checks title">
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,18 @@
+{
+  "name": "jenkins-docker",
+  "version": "1.0.0",
+  "description": "Cypress test project for Jenkins pipeline",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run cypress:run",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run --reporter mocha-junit-reporter --reporter-options mochaFile=cypress/results/junit-[hash].xml"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "cypress": "^15.0.0",
+    "mocha-junit-reporter": "^2.2.1"
+  }
+}
