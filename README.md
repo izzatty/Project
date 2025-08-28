@@ -20,73 +20,56 @@ This repository contains the Jenkins CI/CD pipeline, automation tests, and docum
 git clone https://github.com/<your-username>/<repo-name>.git
 cd Project
 
-2. Jenkins Setup
+### 2. Jenkins Setup
 
-Install Jenkins via Docker:
+- Install Jenkins via Docker: docker-compose -f docker/docker-compose.yml up -d
 
-docker-compose -f docker/docker-compose.yml up -d
+- Access Jenkins at: http://localhost:8080
 
+- Install recommended plugins and configure credentials.
 
-Access Jenkins at: http://localhost:8080
+### 3. Run Pipeline
 
-Install recommended plugins and configure credentials.
+- Open Jenkins dashboard
 
-3. Run Pipeline
+- Create a pipeline job pointing to this repository
 
-Open Jenkins dashboard
+- Configure job to use the jenkins/Jenkinsfile
 
-Create a pipeline job pointing to this repository
+### 4. Run Tests
 
-Configure job to use the jenkins/Jenkinsfile
+- Trigger pipeline manually or via webhook
 
-4. Run Tests
+- Reports will be stored in /reports
 
-Trigger pipeline manually or via webhook
+## 🐳 Docker Setup
 
-Reports will be stored in /reports
+- docker/Dockerfile → Custom Jenkins image (with required plugins)
 
-🐳 Docker Setup
+- docker-compose.yml → Launch Jenkins + agents quickly
 
-docker/Dockerfile → Custom Jenkins image (with required plugins)
+- Data persisted in a Docker volume for Jenkins home
 
-docker-compose.yml → Launch Jenkins + agents quickly
+## 🧪 Jenkinsfile Features
 
-Data persisted in a Docker volume for Jenkins home
+- Multi-stage pipeline (setup → test → report → cleanup)
 
-🧪 Jenkinsfile Features
+- Parallel execution across Chrome, Firefox, Edge
 
-Multi-stage pipeline (setup → test → report → cleanup)
+- Parameterized builds (suite, browser, env)
 
-Parallel execution across Chrome, Firefox, Edge
+- Retry + error handling for flaky tests
 
-Parameterized builds (suite, browser, env)
+- Reporting with JUnit + HTMLPublisher
 
-Retry + error handling for flaky tests
+- Notifications (Slack/Email)
 
-Reporting with JUnit + HTMLPublisher
+## 🚀 Scaling Strategy
 
-Notifications (Slack/Email)
+- Add more agents (via docker-compose scale agent=n)
 
-🚀 Scaling Strategy
+- Use labels (chrome-node, firefox-node) for targeted execution
 
-Add more agents (via docker-compose scale agent=n)
+- Queue management for 50+ executions/day
 
-Use labels (chrome-node, firefox-node) for targeted execution
-
-Queue management for 50+ executions/day
-
-Monitoring via Blue Ocean/Build Monitor
-
-📝 Commit History
-
-This repository follows:
-
-Atomic commits → one feature/fix per commit
-
-Descriptive messages → e.g.,
-
-feat: add multi-browser parallel testing
-
-fix: retry flaky test handling
-
-docs: add troubleshooting guide
+- Monitoring via Blue Ocean/Build Monitor
