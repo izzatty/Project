@@ -45,10 +45,11 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo 'Installing Node.js dependencies...'
-            sh 'npm install'
+                nodejs(nodeJSInstallationName: 'Node24') {
+                sh 'npm install'
             }
         }
-
+    }
 
         stage('Run Cypress Tests') {
             parallel {
