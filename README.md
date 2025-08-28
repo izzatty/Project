@@ -17,7 +17,7 @@ This repository contains the Jenkins CI/CD pipeline, automation tests, and docum
 
 ### 1. Clone the repository
 
-git clone https://github.com/<your-username>/<repo-name>.git
+git clone https://github.com/izzatty/Project
 
 cd Project 
 
