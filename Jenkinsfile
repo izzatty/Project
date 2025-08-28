@@ -1,11 +1,5 @@
 pipeline {
-    agent {
-        docker { 
-            // Cypress Docker image with Node.js + Chrome + Firefox + Edge
-            image 'cypress/browsers:node18.12.0-chrome107-ff106-edge'
-            args '-u root:root' // run as root so npm install works
-        }
-    }
+    agent any
 
     parameters {
         choice(
@@ -49,7 +43,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                echo 'Installing Node.js dependencies...'
+                nodejs(nodeJSInstallationName: 'Node24') {
                 sh 'npm install'
             }
         }
