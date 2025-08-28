@@ -9,7 +9,7 @@ pipeline {
         )
         choice(
             name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge'],
+            choices: ['chrome', 'firefox', 'edge', 'all'],
             description: 'Browser Selection'
         )
         string(
@@ -41,17 +41,26 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies (Placeholder)') {
+        stage('Install Dependencies') {
             steps {
-                echo 'Simulating npm install...'
-                sh 'echo "Dependencies installed (placeholder)"'
+                echo 'Installing dependencies...'
+                sh 'npm ci || npm install'
             }
         }
 
-        stage('Basic Test Run (Placeholder)') {
+        stage('Run Tests') {
             steps {
-                echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}"
-                sh 'echo "Cypress tests would run here"'
+                script {
+                    if (params.BROWSER == 'all') {
+                        parallel(
+                            chrome: { runCypress('chrome', params.TEST_SUITE, params.BASE_URL) },
+                            firefox: { runCypress('firefox', params.TEST_SUITE, params.BASE_URL) },
+                            edge: { runCypress('edge', params.TEST_SUITE, params.BASE_URL) }
+                        )
+                    } else {
+                        runCypress(params.BROWSER, params.TEST_SUITE, params.BASE_URL)
+                    }
+                }
             }
         }
     }
@@ -68,4 +77,18 @@ pipeline {
             echo 'Pipeline completed successfully!'
         }
     }
+}
+
+//
+// Helper function to run Cypress with proper args
+//
+def runCypress(browser, suite, baseUrl) {
+    echo "Running ${suite} tests on ${browser} at ${baseUrl}"
+    sh """
+        npx cypress run \
+          --browser ${browser} \
+          --env suite=${suite},baseUrl=${baseUrl} \
+          --reporter junit \
+          --reporter-options "mochaFile=cypress/results/${browser}-results.xml"
+    """
 }
