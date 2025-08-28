@@ -41,19 +41,17 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install Dependencies (Placeholder)') {
             steps {
-                nodejs(nodeJSInstallationName: 'Node24') {
-                    sh 'npm install'
-                }
+                echo 'Simulating npm install...'
+                sh 'echo "Dependencies installed (placeholder)"'
             }
         }
 
-        stage('Basic Test Run') {
+        stage('Basic Test Run (Placeholder)') {
             steps {
                 echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}"
-                // Placeholder for Cypress or Selenium later
-                sh 'echo "Tests would run here"'
+                sh 'echo "Cypress tests would run here"'
             }
         }
     }
