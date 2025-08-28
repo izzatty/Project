@@ -1,33 +1,39 @@
 pipeline {
-    agent any
+    agent {
+        docker { 
+            // Cypress Docker image with Node.js + Chrome + Firefox + Edge
+            image 'cypress/browsers:node18.12.0-chrome107-ff106-edge'
+            args '-u root:root' // run as root so npm install works
+        }
+    }
 
     parameters {
-        choice(choices: ['smoke', 'regression', 'full'], description: 'Test Suite to Execute', name: 'TEST_SUITE')
-        choice(choices: ['chrome', 'firefox', 'edge'], description: 'Browser Selection', name: 'BROWSER')
-        string(defaultValue: 'https://parabank.parasoft.com', description: 'Environment URL', name: 'BASE_URL')
-    }
-
-    environment {
-        NODE_HOME = 'C:\\Program Files\\nodejs'
-        PATH = "${env.NODE_HOME}:${env.PATH}"
-        REPORT_DIR = "reports"
-    }
-
-    options {
-        timeout(time: 60, unit: 'MINUTES')   // overall pipeline timeout
-        buildDiscarder(logRotator(numToKeepStr: '10')) // keep last 10 builds
+        choice(
+            name: 'TEST_SUITE',
+            choices: ['smoke', 'regression', 'full'],
+            description: 'Test Suite to Execute'
+        )
+        choice(
+            name: 'BROWSER',
+            choices: ['chrome', 'firefox', 'edge'],
+            description: 'Browser Selection'
+        )
+        string(
+            name: 'BASE_URL',
+            defaultValue: 'https://parabank.parasoft.com',
+            description: 'Environment URL'
+        )
     }
 
     stages {
-
         stage('Environment Setup') {
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
                 script {
                     if (params.BASE_URL.contains('staging')) {
-                        echo "Staging environment setup"
+                        echo "Staging-specific setup"
                     } else if (params.BASE_URL.contains('prod')) {
-                        echo "Production environment setup"
+                        echo "Production-specific setup"
                     } else {
                         echo "Default environment setup"
                     }
@@ -37,105 +43,66 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/izzatty/Project'
+                git branch: 'main', url: 'https://github.com/izzatty/Project.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 echo 'Installing Node.js dependencies...'
-                nodejs(nodeJSInstallationName: 'Node24') {
                 sh 'npm install'
             }
         }
-    }
 
         stage('Run Cypress Tests') {
             parallel {
                 stage('Chrome Tests') {
                     when { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } }
                     steps {
-                        script {
-                            retry(2) {  // retry flaky tests up to 2 times
-                                echo "Running ${params.TEST_SUITE} tests on Chrome"
-                                bat "npx cypress run --browser chrome --env BASE_URL=${params.BASE_URL} --spec \"cypress/e2e/**/*.cy.js\""
-                            }
-                        }
+                        sh "npx cypress run --browser chrome --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
                     }
                 }
                 stage('Firefox Tests') {
                     when { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } }
                     steps {
-                        script {
-                            retry(2) {
-                                echo "Running ${params.TEST_SUITE} tests on Firefox"
-                                bat "npx cypress run --browser firefox --env BASE_URL=${params.BASE_URL} --spec \"cypress/e2e/**/*.cy.js\""
-                            }
-                        }
+                        sh "npx cypress run --browser firefox --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
                     }
                 }
                 stage('Edge Tests') {
                     when { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } }
                     steps {
-                        script {
-                            retry(2) {
-                                echo "Running ${params.TEST_SUITE} tests on Edge"
-                                bat "npx cypress run --browser edge --env BASE_URL=${params.BASE_URL} --spec \"cypress/e2e/**/*.cy.js\""
-                            }
-                        }
+                        sh "npx cypress run --browser edge --env suite=${params.TEST_SUITE},baseUrl=${params.BASE_URL}"
                     }
                 }
             }
         }
 
-        stage('Build') {
-            steps {
-                echo "Building the project..."
-                // bat 'npm run build'  // add your real build script if needed
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo "Deploying the application..."
-                // bat 'npm run deploy' // add your real deploy script
-            }
-        }
-
         stage('Archive & Reports') {
             steps {
-                echo "Publishing test reports and screenshots"
-                // Archive Cypress screenshots and videos
-                archiveArtifacts artifacts: 'cypress/screenshots/**/*.*', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'cypress/videos/**/*.*', allowEmptyArchive: true
-
-                // Publish HTML report (requires HTML Publisher plugin)
-                publishHTML(target: [
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${REPORT_DIR}",
+                echo 'Archiving test reports...'
+                publishHTML([
+                    reportDir: 'cypress/reports/html',
                     reportFiles: 'index.html',
-                    reportName: 'Cypress Test Report'
+                    reportName: 'Cypress Test Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true
                 ])
+                junit 'cypress/results/*.xml'
+                archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
             }
         }
-
     }
 
     post {
         always {
-            echo "Cleaning up workspace..."
-            cleanWs() // remove temp files after each build
-        }
-        success {
-            echo "Pipeline succeeded!"
-            // slackSend or email notifications can go here
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
         failure {
-            echo "Pipeline failed!"
-            // send failure notifications with details
+            echo 'Pipeline failed!'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
         }
     }
 }
