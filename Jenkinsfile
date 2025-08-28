@@ -92,6 +92,7 @@ pipeline {
                 archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
             }
         }
+    }
 
     post {
         always {
