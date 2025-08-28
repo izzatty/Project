@@ -13,8 +13,19 @@ pipeline {
             steps { sh 'npx jest' }
         }
         stage('Publish Reports') {
-            steps { publishHTML(...) }
+            steps {
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'reports',
+                    reportFiles: 'index.html',
+                    reportName: 'Test Report'
+                ])
+            }
         }
     }
-    post { always { archiveArtifacts artifacts: 'reports/**' } }
+    post {
+        always { archiveArtifacts artifacts: 'reports/**' }
+    }
 }
