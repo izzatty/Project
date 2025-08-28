@@ -1,8 +1,8 @@
 pipeline {
     agent {
         docker {
-            image 'cypress/browsers:node20.5.0-chrome112-ff112'
-            args '-u root:root'
+            image 'cypress/browsers:node20.5.0-chrome112-ff112' // Node + Chrome + Firefox
+            args '-u root:root' // Run as root inside container to avoid permission issues
         }
     }
 
@@ -12,26 +12,39 @@ pipeline {
         string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Base URL')
     }
 
+    environment {
+        CYPRESS_baseUrl = "${params.BASE_URL}"
+        RESULTS_DIR = "cypress/results"
+    }
+
     stages {
         stage('Checkout') {
-            steps { git branch: 'main', url: 'https://github.com/izzatty/Project.git' }
+            steps {
+                git branch: 'main', url: 'https://github.com/izzatty/Project.git'
+            }
         }
 
         stage('Install Dependencies') {
-            steps { sh 'npm ci || npm install' }
+            steps {
+                echo 'Installing dependencies...'
+                sh 'npm ci || npm install'
+            }
         }
 
-        stage('Run Tests') {
+        stage('Run Cypress Tests') {
             steps {
                 script {
+                    // Ensure results directory exists
+                    sh "mkdir -p ${RESULTS_DIR}"
+
                     if (params.BROWSER == 'all') {
                         parallel(
-                            chrome: { runCypress('chrome') },
-                            firefox: { runCypress('firefox') },
-                            edge: { runCypress('edge') }
+                            chrome: { runCypress('chrome', params.TEST_SUITE) },
+                            firefox: { runCypress('firefox', params.TEST_SUITE) },
+                            edge: { runCypress('edge', params.TEST_SUITE) }
                         )
                     } else {
-                        runCypress(params.BROWSER)
+                        runCypress(params.BROWSER, params.TEST_SUITE)
                     }
                 }
             }
@@ -39,10 +52,24 @@ pipeline {
     }
 
     post {
-        always { cleanWs() }
+        always {
+            echo 'Archiving test results and cleaning workspace...'
+            junit 'cypress/results/*.xml'
+            cleanWs()
+        }
+        success { echo 'Pipeline completed successfully!' }
+        failure { echo 'Pipeline failed!' }
     }
 }
 
-def runCypress(browser) {
-    sh "npx cypress run --browser ${browser} --reporter junit --reporter-options 'mochaFile=results/${browser}-results.xml'"
+// Helper function to run Cypress tests
+def runCypress(browser, suite) {
+    echo "Running ${suite} tests on ${browser}"
+    sh """
+        npx cypress run \
+          --browser ${browser} \
+          --env suite=${suite},baseUrl=${CYPRESS_baseUrl} \
+          --reporter junit \
+          --reporter-options "mochaFile=${RESULTS_DIR}/${browser}-results.xml"
+    """
 }
