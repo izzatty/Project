@@ -13,6 +13,11 @@ pipeline {
             choices: ['chrome', 'firefox', 'edge'],
             description: 'Browser Selection'
         )
+        string(
+            name: 'BASE_URL',
+            defaultValue: 'https://parabank.parasoft.com',
+            description: 'Environment URL'
+        )
     }
 
     environment {
