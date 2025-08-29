@@ -90,7 +90,9 @@ pipeline {
                 body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
             )
             // Trigger downstream job only if success
-            build job: 'DownstreamJob', wait: false
+            build job: 'DownstreamJob', wait: false, parameters: [
+                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
+            ]
         }
         failure {
             echo "Pipeline failed. Please check logs."
