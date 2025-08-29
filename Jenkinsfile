@@ -6,7 +6,7 @@ pipeline {
         // Poll SCM (simulates webhook) - checks repo every 5 minutes
         pollSCM('H/5 * * * *')
 
-        // Scheduled build example:
+        // Scheduled build:
         cron('H 2 * * *')
     }
 
@@ -61,11 +61,8 @@ pipeline {
 
                         # dummy junit report
                         cat > ${REPORT_DIR}/test-results.xml <<EOF
-                        <testsuite tests="2" failures="1" time="0.123">
+                        <testsuite tests="1" failures="0" time="0.123">
                           <testcase classname="dummy" name="test_pass" time="0.001"/>
-                          <testcase classname="dummy" name="test_fail" time="0.002">
-                            <failure message="Assertion failed">Expected X but got Y</failure>
-                          </testcase>
                         </testsuite>
                         EOF
 
@@ -120,12 +117,13 @@ pipeline {
             echo 'This runs regardless of pipeline success/failure.'
         }
         success {
-        emailext(
-            to: 'izzattysuaidii@gmail.com',
-            subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
-            attachLog: true
-        )
+            echo "Pipeline completed successfully!"
+            emailext(
+                to: 'izzattysuaidii@gmail.com',
+                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+                attachLog: true
+            )
             // Trigger downstream job only if success
             build job: 'DownstreamJob', wait: false, parameters: [
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
@@ -133,6 +131,7 @@ pipeline {
         }
 
         unstable {
+            echo "Pipeline completed with test failures (UNSTABLE)."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -142,6 +141,7 @@ pipeline {
             )
         }
         failure {
+            echo "Pipeline failed."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
