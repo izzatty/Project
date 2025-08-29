@@ -1,7 +1,16 @@
 pipeline {
     agent any
 
-    // Parameters allow conditional execution
+    // Build Triggers
+    triggers {
+        // Poll SCM (simulates webhook) - checks repo every 5 minutes
+        pollSCM('H/5 * * * *')
+
+        // (Optional) Scheduled build example:
+        // cron('H 2 * * *')
+    }
+
+    //  Parameterized Manual Trigger
     parameters {
         choice(
             name: 'TEST_SUITE',
@@ -25,6 +34,11 @@ pipeline {
     }
 
     stages {
+        stage('Build') {
+            steps {
+                echo "Starting build pipeline..."
+            }
+        }
 
         stage('Environment Preparation') {
             steps {
@@ -41,9 +55,7 @@ pipeline {
                         
                         // Placeholder for real test commands
                         sh """
-                        # Simulate test execution
                         sleep 2
-                        # Create dummy XML report for archiving
                         echo '<testsuite><testcase classname="dummy" name="test1"/></testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
                         """
                     }
@@ -77,6 +89,8 @@ pipeline {
                 subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
             )
+            // Trigger downstream job only if success
+            build job: 'DownstreamJob', wait: false
         }
         failure {
             echo "Pipeline failed. Please check logs."
