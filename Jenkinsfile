@@ -7,7 +7,7 @@ pipeline {
         pollSCM('H/5 * * * *')
 
         // Scheduled build example:
-        // cron('H 2 * * *')
+        cron('H 2 * * *')
     }
 
     //  Parameterized Manual Trigger
