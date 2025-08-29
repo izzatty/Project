@@ -6,49 +6,41 @@ pipeline {
         choice(
             name: 'TEST_SUITE',
             choices: ['smoke', 'regression', 'full'],
-            description: 'Select the test suite to execute'
+            description: 'Test suite to execute'
         )
         choice(
-            name: 'ENV',
-            choices: ['dev', 'staging', 'prod'],
-            description: 'Target environment'
+            name: 'BROWSER',
+            choices: ['chrome', 'firefox', 'edge'],
+            description: 'Browser Selection'
         )
     }
 
     environment {
         REPORT_DIR = 'reports'
-        RETRY_COUNT = 2
     }
 
     stages {
 
         stage('Environment Preparation') {
             steps {
-                echo "Preparing environment for ${params.ENV}"
-                sh 'mkdir -p $REPORT_DIR'
-                // Add environment-specific setup here
+                echo "Preparing environment for dev"
+                sh "mkdir -p ${env.REPORT_DIR}"
             }
         }
 
         stage('Test Execution') {
             steps {
                 script {
-                    // Conditional test suite execution
-                    if (params.TEST_SUITE == 'smoke') {
-                        retry(env.RETRY_COUNT.toInteger()) {
-                            echo 'Running smoke tests...'
-                            // sh 'run_smoke_tests.sh'
-                        }
-                    } else if (params.TEST_SUITE == 'regression') {
-                        retry(env.RETRY_COUNT.toInteger()) {
-                            echo 'Running regression tests...'
-                            // sh 'run_regression_tests.sh'
-                        }
-                    } else {
-                        retry(env.RETRY_COUNT.toInteger()) {
-                            echo 'Running full test suite...'
-                            // sh 'run_full_tests.sh'
-                        }
+                    retry(2) { // Retry flaky tests
+                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
+                        
+                        // Placeholder for real test commands
+                        sh """
+                        # Simulate test execution
+                        sleep 2
+                        # Create dummy XML report for archiving
+                        echo '<testsuite><testcase classname="dummy" name="test1"/></testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
+                        """
                     }
                 }
             }
@@ -75,11 +67,19 @@ pipeline {
             echo 'This runs regardless of pipeline success/failure.'
         }
         success {
-            echo 'Pipeline completed successfully!'
-        }
+        echo "Pipeline completed successfully!"
+        emailext(
+            to: 'izzattysuaidii@gmail.com',
+            subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
+        )
+    }
         failure {
-            echo 'Pipeline failed. Sending notifications...'
-            // Example: emailext body: 'Pipeline failed!', subject: 'Jenkins Failure', to: 'team@example.com'
-        }
+        echo "Pipeline failed. Please check logs."
+        emailext(
+            to: 'izzattysuaidii@gmail.com',
+            subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: "Oops! The pipeline failed.\n\nCheck the console output for details: ${env.BUILD_URL}"
+        )
     }
 }
