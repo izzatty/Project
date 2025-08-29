@@ -53,32 +53,39 @@ pipeline {
                     def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
                     
                     // Smart test selection
-                    def selectedTest
-                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                        selectedTest = 'smoke'
-                    } else {
-                        selectedTest = 'full'
-                    }
+                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
                     echo "Selected test suite based on day: ${selectedTest}"
 
-                    // Track start time
-                    def startTime = System.currentTimeMillis()
+                    // Map browsers to agent labels
+                    def browserAgentMap = [
+                        chrome: 'agent-chrome',
+                        firefox: 'agent-firefox',
+                        edge: 'agent-edge'
+                    ]
 
-                    // Retry failed tests up to 2 times
-                    retry(2) {
-                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
-                        sh """
-mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
+                    // Determine target browsers
+                    def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
+
+                    targetBrowsers.each { browser ->
+                        lock(resource: "browser-${browser}", inversePrecedence: true) { // queue builds for same browser
+                            node(browserAgentMap[browser]) {
+                                echo "Running ${selectedTest} tests on ${browser}..."
+
+                                def startTime = System.currentTimeMillis()
+
+                                retry(2) {
+                                    sh """
+mkdir -p ${REPORT_DIR}/${browser} ${SCREENSHOT_DIR}/${browser}
 
 # dummy junit report
-cat > ${REPORT_DIR}/test-results.xml <<EOF
+cat > ${REPORT_DIR}/${browser}/test-results.xml <<EOF
 <testsuite tests="1" failures="0" time="0.123">
   <testcase classname="dummy" name="test_pass" time="0.001"/>
 </testsuite>
 EOF
 
 # dummy HTML report
-cat > ${REPORT_DIR}/index.html <<EOF
+cat > ${REPORT_DIR}/${browser}/index.html <<EOF
 <html>
   <body>
     <h1>Test Report</h1>
@@ -91,8 +98,7 @@ EOF
 # dummy screenshot
 echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
 """
-            }
-
+                    }
                     // Skip non-critical tests if elapsed time > MAX_BUILD_TIME_MIN
                     def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
                     if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
@@ -108,6 +114,9 @@ cat > ${REPORT_DIR}/non_critical.xml <<EOF
 </testsuite>
 EOF
 """
+                                }
+                            }
+                        }
                     }
                 }
             }
