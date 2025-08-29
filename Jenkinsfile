@@ -45,8 +45,8 @@ pipeline {
             steps {
                 echo "Preparing environment for https://parabank.parasoft.com"
                 sh '''
-                    mkdir -p reports
-                    mkdir -p screenshots
+                    mkdir -p ${REPORT_DIR}
+                    mkdir -p ${SCREENSHOT_DIR}
                 '''
             }
         }
@@ -57,8 +57,8 @@ pipeline {
                     retry(1) {
                         echo "Running smoke tests on chrome..."
                         sh '''
-                            mkdir -p reports
-                            cat > reports/test-results.xml <<EOF
+                            mkdir -p ${REPORT_DIR}
+                            cat > ${REPORT_DIR}/test-results.xml <<EOF
                             <testsuite tests="2" failures="1" time="0.123">
                               <testcase classname="dummy" name="test_pass" time="0.001"/>
                               <testcase classname="dummy" name="test_fail" time="0.002">
@@ -75,7 +75,8 @@ pipeline {
         stage('Report Generation') {
             steps {
                 echo "Publishing JUnit test results"
-                junit '**/reports/*.xml'
+                // This is what drives the "Test Result Trend" graph
+                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
 
                 echo "Publishing HTML report"
                 publishHTML([
@@ -130,6 +131,11 @@ pipeline {
                 attachmentsPattern: "${env.SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
+        }
+        cleanup {
+            // cleanup moved here so reports + artifacts are still available
+            echo 'Cleaning up workspace after pipeline completes...'
+            cleanWs()
         }
     }
 }
