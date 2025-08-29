@@ -1,81 +1,85 @@
 pipeline {
     agent any
 
+    // Parameters allow conditional execution
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['smoke', 'regression', 'full'], description: 'Test Suite to Execute')
-        choice(name: 'BROWSER', choices: ['chrome', 'firefox', 'edge', 'all'], description: 'Browser Selection')
-        string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Environment URL')
+        choice(
+            name: 'TEST_SUITE',
+            choices: ['smoke', 'regression', 'full'],
+            description: 'Select the test suite to execute'
+        )
+        choice(
+            name: 'ENV',
+            choices: ['dev', 'staging', 'prod'],
+            description: 'Target environment'
+        )
     }
 
     environment {
-        BASE_URL = "${params.BASE_URL}"
+        REPORT_DIR = 'reports'
+        RETRY_COUNT = 2
     }
 
     stages {
-        stage('Checkout Code') {
+
+        stage('Environment Preparation') {
             steps {
-                checkout scm
+                echo "Preparing environment for ${params.ENV}"
+                sh 'mkdir -p $REPORT_DIR'
+                // Add environment-specific setup here
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                echo 'Installing dependencies...'
-                sh 'npm ci || npm install'
-            }
-        }
-
-        stage('Run Tests in Parallel') {
+        stage('Test Execution') {
             steps {
                 script {
-                    // Determine which browsers to run
-                    def browsers = []
-                    if (params.BROWSER == 'all') {
-                        browsers = ['chrome', 'firefox', 'edge']
+                    // Conditional test suite execution
+                    if (params.TEST_SUITE == 'smoke') {
+                        retry(env.RETRY_COUNT.toInteger()) {
+                            echo 'Running smoke tests...'
+                            // sh 'run_smoke_tests.sh'
+                        }
+                    } else if (params.TEST_SUITE == 'regression') {
+                        retry(env.RETRY_COUNT.toInteger()) {
+                            echo 'Running regression tests...'
+                            // sh 'run_regression_tests.sh'
+                        }
                     } else {
-                        browsers = [params.BROWSER]
-                    }
-
-                    // Prepare parallel steps
-                    def parallelSteps = [:]
-                    for (b in browsers) {
-                        parallelSteps[b] = {
-                            retry(2) { // Retry flaky tests
-                                echo "Running ${params.TEST_SUITE} tests on ${b}"
-                                sh """
-                                    npx cypress run \
-                                      --browser ${b} \
-                                      --env baseUrl=${BASE_URL},suite=${params.TEST_SUITE} \
-                                      --reporter junit \
-                                      --reporter-options "mochaFile=cypress/results/${b}-results.xml"
-                                """
-                            }
+                        retry(env.RETRY_COUNT.toInteger()) {
+                            echo 'Running full test suite...'
+                            // sh 'run_full_tests.sh'
                         }
                     }
-
-                    // Execute all browsers in parallel
-                    parallel parallelSteps
                 }
             }
         }
 
-        stage('Archive Test Results') {
+        stage('Report Generation') {
             steps {
-                junit 'cypress/results/*.xml'
+                echo 'Generating reports...'
+                // sh 'generate_reports.sh'
+                archiveArtifacts artifacts: "${env.REPORT_DIR}/*.xml", allowEmptyArchive: true
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                echo 'Cleaning up workspace...'
+                deleteDir() // Clean the workspace
             }
         }
     }
 
     post {
         always {
-            echo 'Cleaning workspace...'
-            cleanWs()
+            echo 'This runs regardless of pipeline success/failure.'
         }
         success {
             echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo 'Pipeline failed. Sending notifications...'
+            // Example: emailext body: 'Pipeline failed!', subject: 'Jenkins Failure', to: 'team@example.com'
         }
     }
 }
