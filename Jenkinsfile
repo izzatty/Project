@@ -70,8 +70,18 @@ pipeline {
                         </testsuite>
                         EOF
 
-                        # dummy screenshot so Jenkins has something to archive
-                        echo "fake image" > screenshots/screenshot1.png
+                        # dummy HTML report
+                        cat > ${REPORT_DIR}/index.html <<EOF
+                        <html>
+                          <body>
+                            <h1>Test Report</h1>
+                            <p>All tests completed.</p>
+                          </body>
+                        </html>
+                        EOF
+
+                        # dummy screenshot
+                        echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
                         ls -l screenshots
                         '''
                     }
@@ -96,7 +106,7 @@ pipeline {
                 ])
 
                 echo "Archiving screenshots"
-                archiveArtifacts artifacts: 'screenshots/*.png', allowEmptyArchive: true
+                archiveArtifacts artifacts: "${SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
             }
         }
 
