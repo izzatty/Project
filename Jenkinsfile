@@ -47,27 +47,27 @@ pipeline {
         }
 
        stage('Test Execution') {
-    steps {
-        script {
-            // Determine day of week (1=Mon, 7=Sun)
-            def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
+            steps {
+                script {
+                    // Determine day of week (1=Mon, 7=Sun)
+                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
                     
-            // Smart test selection
-            def selectedTest
-            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                selectedTest = 'smoke'
-            } else {
-                selectedTest = 'full'
-            }
-            echo "Selected test suite based on day: ${selectedTest}"
+                    // Smart test selection
+                    def selectedTest
+                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                        selectedTest = 'smoke'
+                    } else {
+                        selectedTest = 'full'
+                    }
+                    echo "Selected test suite based on day: ${selectedTest}"
 
-            // Track start time
-            def startTime = System.currentTimeMillis()
+                    // Track start time
+                    def startTime = System.currentTimeMillis()
 
-            // Retry failed tests up to 2 times
-            retry(2) {
-                echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
-                sh """
+                    // Retry failed tests up to 2 times
+                    retry(2) {
+                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
+                        sh """
 mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
 
 # dummy junit report
@@ -93,9 +93,9 @@ echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
 """
             }
 
-                    // Skip non-critical tests if elapsed time > 30 minutes
+                    // Skip non-critical tests if elapsed time > MAX_BUILD_TIME_MIN
                     def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
-                    if (elapsedMin > MAX_BUILD_TIME_MIN) {
+                    if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
                         echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
                     }
                 }
