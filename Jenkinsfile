@@ -59,10 +59,12 @@ pipeline {
                         
                         // Simulated test + screenshot
                         sh """
-                        sleep 2
-                        echo '<testsuite><testcase classname="dummy" name="test1"/></testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
-                        echo '<html><body><h1>${params.TEST_SUITE} Report</h1><p>Executed on ${params.BROWSER}</p></body></html>' > ${env.REPORT_DIR}/report_${params.TEST_SUITE}.html
-                        echo 'screenshot binary data' > ${env.SCREENSHOT_DIR}/failure.png
+                        echo '<testsuite tests="2" failures="1" time="0.123">
+                                <testcase classname="dummy" name="test_pass" time="0.001"/>
+                                <testcase classname="dummy" name="test_fail" time="0.002">
+                                    <failure message="Assertion failed">Expected X but got Y</failure>
+                                </testcase>
+                              </testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
                         """
                     }
                 }
