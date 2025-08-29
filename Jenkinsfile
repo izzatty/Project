@@ -52,43 +52,38 @@ pipeline {
         }
 
         stage('Test Execution') {
-            steps {
-                script {
-                    retry(2) { // Retry flaky tests
-                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
-                        
-                        // Simulated test + screenshot
-                        sh """
-                        echo '<testsuite tests="2" failures="1" time="0.123">
-                                <testcase classname="dummy" name="test_pass" time="0.001"/>
-                                <testcase classname="dummy" name="test_fail" time="0.002">
-                                    <failure message="Assertion failed">Expected X but got Y</failure>
-                                </testcase>
-                              </testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
-                        """
-                    }
-                }
+            script {
+                retry(1) {
+                    echo "Running smoke tests on chrome..."
+                    sh '''
+                        mkdir -p reports
+                        cat > reports/test-results.xml <<EOF
+                        <testsuite tests="2" failures="1" time="0.123">
+                        <testcase classname="dummy" name="test_pass" time="0.001"/>
+                        <testcase classname="dummy" name="test_fail" time="0.002">
+                        <failure message="Assertion failed">Expected X but got Y</failure>
+                      </testcase>
+                    </testsuite>
+                    EOF
+                '''
             }
         }
+    }
 
         stage('Report Generation') {
-            steps {
-                echo 'Publishing JUnit results...'
-                junit allowEmptyResults: true, testResults: "${env.REPORT_DIR}/*.xml"
+            echo "Publishing JUnit results..."
+            junit 'reports/*.xml'
 
-                echo 'Publishing HTML reports...'
-                publishHTML([
-                    allowMissing: true,
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    reportDir: "${env.REPORT_DIR}",
-                    reportFiles: "report_${params.TEST_SUITE}.html",
-                    reportName: "Test Report"
-                ])
+            echo "Publishing HTML reports..."
+            publishHTML([allowMissing: false,
+                         alwaysLinkToLastBuild: true,
+                         keepAll: true,
+                         reportDir: 'reports',
+                         reportFiles: 'index.html',
+                         reportName: 'Test Report'])
 
-                echo 'Archiving screenshots...'
-                archiveArtifacts artifacts: "${env.SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
-            }
+            echo "Archiving screenshots..."
+            archiveArtifacts artifacts: 'screenshots/*.png', allowEmptyArchive: true
         }
 
         stage('Cleanup') {
