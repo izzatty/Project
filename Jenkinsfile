@@ -86,7 +86,7 @@ pipeline {
 }
 
 // Helper function to run tests per browser
-def runBrowserTests(browser, testSuite) {
+def runBrowserTests(browser, testSuite, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, BASE_URL) {
     echo "Running ${testSuite} tests on ${browser}..."
     def startTime = System.currentTimeMillis()
 
@@ -106,17 +106,18 @@ cat > ${REPORT_DIR}/${browser}/index.html <<EOF
 <html>
   <body>
     <h1>Test Report</h1>
-    <p>Executed: ${params.TEST_SUITE} on ${params.BROWSER}</p>
-    <p>Base URL: ${params.BASE_URL}</p>
+    <p>Executed: ${testSuite} on ${browser}</p>
+    <p>Base URL: ${BASE_URL}</p>
   </body>
 </html>
 EOF
 
 # dummy screenshot
-echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
+echo "fake image" > ${SCREENSHOT_DIR}/${browser}/screenshot1.png
 """
     }
-                   def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
+    
+    def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
     if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
         echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
     } else {
