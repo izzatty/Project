@@ -78,7 +78,7 @@ pipeline {
                 junit '**/reports/*.xml'
 
                 echo "Publishing HTML report"
-                publishHTML(target: [
+                publishHTML([
                     reportDir: 'target/site',
                     reportFiles: 'index.html',
                     reportName: 'HTML Report'
