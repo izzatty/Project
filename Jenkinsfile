@@ -118,20 +118,18 @@ pipeline {
             steps {
                 script {
                     echo "Collecting and publishing test results (JUnit)..."
-
-                    // JUnit aggregator: collects xmls from all browsers and suites
+                    
                     junit allowEmptyResults: true, testResults: "${env.REPORT_DIR}/**/*.xml"
 
                     echo "Publishing HTML reports..."
-                    // publishHTML requires a map with required keys; keepAll/allowMissing/alwaysLinkToLastBuild are included
-                    publishHTML([[
+                    publishHTML(target: [
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
                         reportDir: "${env.REPORT_DIR}",
                         reportFiles: "report_*.html",
                         reportName: "Automated Test Reports"
-                    ]])
+                    ])
 
                     echo "Archiving screenshots..."
                     archiveArtifacts artifacts: "${env.SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
