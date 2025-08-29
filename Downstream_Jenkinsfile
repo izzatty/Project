@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(
+            name: 'UPSTREAM_BUILD',
+            defaultValue: 'N/A',
+            description: 'Triggered by upstream build'
+        )
+    }
+
+    stages {
+        stage('Start Downstream') {
+            steps {
+                echo "Downstream job triggered!"
+                echo "Upstream Build Info: ${params.UPSTREAM_BUILD}"
+            }
+        }
+
+        stage('Deploy or Extra Steps') {
+            steps {
+                echo "Running deployment/test tasks..."
+                sh """
+                sleep 2
+                echo 'Deployment simulation complete.'
+                """
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo "Verifying deployment..."
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Downstream job finished successfully 🎉"
+        }
+        failure {
+            echo "Downstream job failed ❌"
+        }
+    }
+}
