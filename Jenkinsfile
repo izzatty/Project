@@ -24,13 +24,10 @@ pipeline {
             steps {
                 script {
                     echo "Preparing environment for ${params.BASE_URL}"
-                    // Environment-specific configuration
                     if (params.BASE_URL.contains('staging')) {
                         echo "Applying staging-specific setup..."
-                        // staging-specific commands 
                     } else if (params.BASE_URL.contains('prod')) {
                         echo "Applying production-specific setup (be careful!)"
-                        // production-specific commands 
                     } else {
                         echo "Default/dev setup"
                     }
@@ -43,10 +40,15 @@ pipeline {
             }
         }
 
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
         stage('Test Execution (parallel browsers)') {
             steps {
                 script {
-                    // pick browsers
                     def browsers = []
                     if (params.BROWSER == 'all') {
                         browsers = ['chrome', 'firefox', 'edge']
@@ -54,50 +56,33 @@ pipeline {
                         browsers = [params.BROWSER]
                     }
 
-                    // build parallel map
                     def branches = [:]
                     for (b in browsers) {
-                        def browser = b  // important: bind to a new var for closure
+                        def browser = b
                         branches[browser] = {
-                            // Isolate each browser run so failures don't kill other branches
                             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                retry(2) { // retry flaky tests per browser
-                                    echo "Starting tests for ${browser} (suite=${params.TEST_SUITE})"
+                                retry(2) {
+                                    echo "Starting Cypress tests for ${browser} (suite=${params.TEST_SUITE})"
                                     sh """
                                         mkdir -p ${env.REPORT_DIR}/${browser}
                                         mkdir -p ${env.SCREENSHOT_DIR}/${browser}
 
-                                        # ---------- Replace these simulated steps with real test commands ----------
-                                        # Example: npx cypress run --browser ${browser} --env baseUrl=${params.BASE_URL},suite=${params.TEST_SUITE} \
-                                        #   --reporter junit --reporter-options mochaFile=${env.REPORT_DIR}/${browser}/results.xml
-
-                                        # Simulated tests: write a junit xml and an example HTML and screenshot file
-                                        cat > ${env.REPORT_DIR}/${browser}/results.xml <<EOF
-                                        <testsuite tests="2" failures="1" time="0.123">
-                                          <testcase classname="dummy" name="test_pass" time="0.001"/>
-                                          <testcase classname="dummy" name="test_fail" time="0.002">
-                                            <failure message="Assertion failed">Expected X but got Y</failure>
-                                          </testcase>
-                                        </testsuite>
-                                        EOF
-
-                                        echo "<html><body><h1>${params.TEST_SUITE} on ${browser}</h1></body></html>" > ${env.REPORT_DIR}/${browser}/report_${browser}.html
-                                        # Create a placeholder screenshot for failures (in real runs you'll collect real images)
-                                        echo "fake-binary-data" > ${env.SCREENSHOT_DIR}/${browser}/failure.png
-                                        # ---------------------------------------------------------------------------------
+                                        npx cypress run \
+                                          --browser ${browser} \
+                                          --env baseUrl=${params.BASE_URL},suite=${params.TEST_SUITE} \
+                                          --reporter mocha-junit-reporter \
+                                          --reporter-options mochaFile=${env.REPORT_DIR}/${browser}/results.xml,attachments=true \
+                                          --config screenshotsFolder=${env.SCREENSHOT_DIR}/${browser},videosFolder=${env.SCREENSHOT_DIR}/${browser}
                                     """
-                                } // retry
-                            } // catchError
-                        } // closure
-                    } // for
-
-                    // Execute parallel
+                                }
+                            }
+                        }
+                    }
                     parallel branches
-                } // script
-            } // steps
-        } // stage
+                }
+            }
+        }
 
-        // Example: Run more extensive tests only for regression/full
         stage('Extended Tests (optional)') {
             when {
                 anyOf {
@@ -108,8 +93,6 @@ pipeline {
             steps {
                 script {
                     echo "Running extended tests because TEST_SUITE=${params.TEST_SUITE}"
-                    // place additional/regression tasks here
-                    // e.g. run load tests, integration suites, etc.
                 }
             }
         }
@@ -118,7 +101,6 @@ pipeline {
             steps {
                 script {
                     echo "Collecting and publishing test results (JUnit)..."
-                    
                     junit allowEmptyResults: true, testResults: "${env.REPORT_DIR}/**/*.xml"
 
                     echo "Publishing HTML reports..."
@@ -132,7 +114,7 @@ pipeline {
                     ])
 
                     echo "Archiving screenshots..."
-                    archiveArtifacts artifacts: "${env.SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "${env.SCREENSHOT_DIR}/**/*.*", allowEmptyArchive: true
                 }
             }
         }
@@ -145,11 +127,9 @@ pipeline {
     } 
 
     post {
-        post {
             always {
                 junit 'reports/**/*.xml'
             }
-        }
 
         success {
             echo "Post: success — sending success email and triggering downstream job (if configured)."
@@ -164,8 +144,8 @@ pipeline {
                 attachLog: true
             )
 
-            // Trigger downstream job, pass upstream build info; create the downstream job in Jenkins as 'DownstreamJob'
-            build job: 'DownstreamJob', wait: false, parameters: [string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")]
+            build job: 'DownstreamJob', wait: false, 
+                parameters: [string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")]
         }
 
         unstable {
@@ -174,7 +154,7 @@ pipeline {
                 to: 'izzattysuaidii@gmail.com',
                 subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Build is UNSTABLE. Check ${env.BUILD_URL}. Screenshots and logs archived.",
-                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.png",
+                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.*",
                 attachLog: true
             )
         }
@@ -185,13 +165,12 @@ pipeline {
                 to: 'izzattysuaidii@gmail.com',
                 subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Build FAILED. See ${env.BUILD_URL} for console output. Artifacts/screenshots archived if available.",
-                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.png",
+                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.*",
                 attachLog: true
             )
         }
 
         cleanup {
-            // final workspace cleanup after all reporting/archival steps completed
             echo "Post: cleanup — cleaning workspace to free space (reports and artifacts remain available via Jenkins UI)."
             cleanWs()
         }
