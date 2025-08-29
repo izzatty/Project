@@ -43,8 +43,11 @@ pipeline {
 
         stage('Environment Preparation') {
             steps {
-                echo "Preparing environment for ${params.BASE_URL}"
-                sh "mkdir -p ${env.REPORT_DIR}"
+                echo "Preparing environment for https://parabank.parasoft.com"
+                sh '''
+                    mkdir -p reports
+                    mkdir -p screenshots
+                '''
             }
         }
 
