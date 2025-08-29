@@ -44,10 +44,7 @@ pipeline {
         stage('Environment Preparation') {
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                sh """
-                    mkdir -p ${REPORT_DIR}
-                    mkdir -p ${SCREENSHOT_DIR}
-                """
+                sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
             }
         }
 
@@ -57,7 +54,6 @@ pipeline {
                     retry(1) {
                         echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
                         sh """
-                            mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
 
                         # dummy junit report
                         cat > ${REPORT_DIR}/test-results.xml <<EOF
