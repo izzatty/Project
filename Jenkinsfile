@@ -1,51 +1,5 @@
-// Helper function to run tests per browser
-def runBrowserTests(browser, testSuite, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, BASE_URL) {
-    echo "Running ${testSuite} tests on ${browser}..."
-    def startTime = System.currentTimeMillis()
-
-    retry(2) {
-        sh """
-mkdir -p ${REPORT_DIR}/${browser} ${SCREENSHOT_DIR}/${browser}
-
-# dummy junit report
-cat > ${REPORT_DIR}/${browser}/test-results.xml <<EOF
-<testsuite tests="1" failures="0" time="0.123">
-  <testcase classname="dummy" name="test_pass" time="0.001"/>
-</testsuite>
-EOF
-
-# dummy HTML report
-cat > ${REPORT_DIR}/${browser}/index.html <<EOF
-<html>
-  <body>
-    <h1>Test Report</h1>
-    <p>Executed: ${testSuite} on ${browser}</p>
-    <p>Base URL: ${BASE_URL}</p>
-  </body>
-</html>
-EOF
-
-# dummy screenshot
-echo "fake image" > ${SCREENSHOT_DIR}/${browser}/screenshot1.png
-"""
-    }
-    
-    def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
-    if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
-        echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
-    } else {
-        echo "Running non-critical tests..."
-        sh """
-# Simulate non-critical tests
-echo "Executing non-critical tests..."
-cat > ${REPORT_DIR}/${browser}/non_critical.xml <<EOF
-<testsuite tests="1" failures="0" time="0.045">
-  <testcase classname="dummy" name="non_critical_test" time="0.001"/>
-</testsuite>
-EOF
-"""
-    }
-}
+// Load global trusted library
+@Library('runBrowserTests') _   // <-- this matches the name you set in Jenkins Global Pipeline Libraries
 
 pipeline {
     agent any
@@ -56,7 +10,7 @@ pipeline {
         cron('H 2 * * *') // Scheduled build
     }
 
-    //  Parameterized Manual Trigger
+    // Parameterized Manual Trigger
     parameters {
         choice(
             name: 'TEST_SUITE',
@@ -95,7 +49,7 @@ pipeline {
             }
         }
 
-       stage('Test Execution') {
+        stage('Test Execution') {
             steps {
                 script {
                     // Determine day of week (1=Mon, 7=Sun)
@@ -115,25 +69,25 @@ pipeline {
                     // Determine target browsers
                     def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
 
-                   targetBrowsers.each { browser ->
-                // Lock per browser to avoid simultaneous access
-                lock(resource: "browser-${browser}", inversePrecedence: true) {
-                    node(browserAgentMap[browser]) {
-                        // Lock global resource for heavy tests
-                        if (selectedTest == 'full') {
-                            lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
-                                runBrowserTests(browser, selectedTest)
+                    targetBrowsers.each { browser ->
+                        // Lock per browser to avoid simultaneous access
+                        lock(resource: "browser-${browser}", inversePrecedence: true) {
+                            node(browserAgentMap[browser]) {
+                                // Lock global resource for heavy tests
+                                if (selectedTest == 'full') {
+                                    lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
+                                        runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                    }
+                                } else {
+                                    runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                }
                             }
-                        } else {
-                            runBrowserTests(browser, selectedTest)
                         }
                     }
                 }
             }
         }
-    }
-}
-        
+
         stage('Report Generation') {
             steps {
                 echo "Publishing JUnit test results"
@@ -141,11 +95,11 @@ pipeline {
 
                 echo "Publishing HTML report"
                 publishHTML([
-                    allowMissing: true,              // don’t fail build if report folder is missing
-                    alwaysLinkToLastBuild: true,     // keeps link always pointing to latest build
-                    keepAll: true,                   // keep past reports
-                    reportDir: "${REPORT_DIR}",      // directory where the report lives
-                    reportFiles: 'index.html',       // the actual file(s) to publish
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: "${REPORT_DIR}",
+                    reportFiles: 'index.html',
                     reportName: 'HTML Report'
                 ])
 
@@ -173,12 +127,10 @@ pipeline {
                 body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
                 attachLog: true
             )
-            // Trigger downstream job only if success
             build job: 'DownstreamJob', wait: false, parameters: [
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
             ]
         }
-
         unstable {
             echo "Pipeline completed with test failures (UNSTABLE)."
             emailext(
@@ -200,7 +152,6 @@ pipeline {
             )
         }
         cleanup {
-            // cleanup moved here so reports + artifacts are still available
             echo 'Cleaning up workspace after pipeline completes...'
             deleteDir()
         }
