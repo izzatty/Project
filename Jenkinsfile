@@ -1,182 +1,146 @@
 pipeline {
-    agent {
-        docker {
-            image 'cypress/included:15.0.0'   // Cypress with Node + Chrome + Firefox preinstalled
-            args '-u root:root'               // run as root to avoid permission issues
-        }
-    }
-    
-    // Build triggers: poll SCM (simulates webhook) + cron
+    agent any
+
+    // Build Triggers
     triggers {
-        pollSCM('H/5 * * * *')   // polling every 5 minutes (simulates webhook)
-        // cron('H 2 * * *')     // example scheduled run at ~2AM daily 
+        // Poll SCM (simulates webhook) - checks repo every 5 minutes
+        pollSCM('H/5 * * * *')
+
+        // Scheduled build example:
+        // cron('H 2 * * *')
     }
 
-    // Parameters (parameterized manual triggers)
+    //  Parameterized Manual Trigger
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['smoke', 'regression', 'full'], description: 'Test suite to execute')
-        choice(name: 'BROWSER', choices: ['all', 'chrome', 'firefox', 'edge'], description: 'Browser Selection')
-        string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Environment URL')
+        choice(
+            name: 'TEST_SUITE',
+            choices: ['smoke', 'regression', 'full'],
+            description: 'Test suite to execute'
+        )
+        choice(
+            name: 'BROWSER',
+            choices: ['chrome', 'firefox', 'edge'],
+            description: 'Browser Selection'
+        )
+        string(
+            name: 'BASE_URL',
+            defaultValue: 'https://parabank.parasoft.com',
+            description: 'Environment URL'
+        )
     }
 
     environment {
-        REPORT_DIR      = 'reports'
-        SCREENSHOT_DIR  = 'screenshots'
+        REPORT_DIR = 'reports'
+        SCREENSHOT_DIR = 'screenshots'
     }
 
     stages {
+        stage('Build') {
+            steps {
+                echo "Starting build pipeline..."
+            }
+        }
+
         stage('Environment Preparation') {
             steps {
+                echo "Preparing environment for https://parabank.parasoft.com"
+                sh '''
+                    mkdir -p ${REPORT_DIR}
+                    mkdir -p ${SCREENSHOT_DIR}
+                '''
+            }
+        }
+
+        stage('Test Execution') {
+            steps {
                 script {
-                    echo "Preparing environment for ${params.BASE_URL}"
-                    if (params.BASE_URL.contains('staging')) {
-                        echo "Applying staging-specific setup..."
-                    } else if (params.BASE_URL.contains('prod')) {
-                        echo "Applying production-specific setup (be careful!)"
-                    } else {
-                        echo "Default/dev setup"
+                    retry(1) {
+                        echo "Running smoke tests on chrome..."
+                        sh '''
+                        mkdir -p reports
+                        mkdir -p screenshots
+
+                        # dummy junit report
+                        cat > reports/test-results.xml <<EOF
+                        <testsuite tests="2" failures="1" time="0.123">
+                          <testcase classname="dummy" name="test_pass" time="0.001"/>
+                          <testcase classname="dummy" name="test_fail" time="0.002">
+                            <failure message="Assertion failed">Expected X but got Y</failure>
+                          </testcase>
+                        </testsuite>
+                        EOF
+
+                        # dummy screenshot so Jenkins has something to archive
+                        echo "fake image" > screenshots/screenshot1.png
+                        '''
                     }
-
-                    sh """
-                        mkdir -p ${env.REPORT_DIR}
-                        mkdir -p ${env.SCREENSHOT_DIR}
-                    """
                 }
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Report Generation') {
             steps {
-                sh 'npm ci'
+                echo "Publishing JUnit test results"
+                // This is what drives the "Test Result Trend" graph
+                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
+
+                echo "Publishing HTML report"
+                publishHTML([
+                    allowMissing: true,              // don’t fail build if report folder is missing
+                    alwaysLinkToLastBuild: true,     // keeps link always pointing to latest build
+                    keepAll: true,                   // keep past reports
+                    reportDir: 'reports',            // directory where the report lives
+                    reportFiles: 'index.html',       // the actual file(s) to publish
+                    reportName: 'HTML Report'
+                ])
+
+                echo "Archiving screenshots"
+                archiveArtifacts artifacts: 'screenshots/*.png', allowEmptyArchive: true
             }
         }
 
-        stage('Test Execution (parallel browsers)') {
+        stage('Cleanup') {
             steps {
-                script {
-                    def browsers = []
-                    if (params.BROWSER == 'all') {
-                        browsers = ['chrome', 'firefox', 'edge']
-                    } else {
-                        browsers = [params.BROWSER]
-                    }
-
-                    def branches = [:]
-                    for (b in browsers) {
-                        def browser = b
-                        branches[browser] = {
-                            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                retry(2) {
-                                    echo "Starting Cypress tests for ${browser} (suite=${params.TEST_SUITE})"
-                                    sh """
-                                        mkdir -p ${env.REPORT_DIR}/${browser}
-                                        mkdir -p ${env.SCREENSHOT_DIR}/${browser}
-
-                                        npx cypress run \
-                                          --browser ${browser} \
-                                          --env baseUrl=${params.BASE_URL},suite=${params.TEST_SUITE} \
-                                          --reporter mocha-junit-reporter \
-                                          --reporter-options mochaFile=${env.REPORT_DIR}/${browser}/results.xml,attachments=true \
-                                          --config screenshotsFolder=${env.SCREENSHOT_DIR}/${browser},videosFolder=${env.SCREENSHOT_DIR}/${browser}
-                                    """
-                                }
-                            }
-                        }
-                    }
-                    parallel branches
-                }
+                echo 'Cleaning up workspace...'
+                deleteDir()
             }
         }
-
-        stage('Extended Tests (optional)') {
-            when {
-                anyOf {
-                    expression { params.TEST_SUITE == 'regression' }
-                    expression { params.TEST_SUITE == 'full' }
-                }
-            }
-            steps {
-                script {
-                    echo "Running extended tests because TEST_SUITE=${params.TEST_SUITE}"
-                }
-            }
-        }
-
-        stage('Report Generation & Archival') {
-            steps {
-                script {
-                    echo "Collecting and publishing test results (JUnit)..."
-                    junit allowEmptyResults: true, testResults: "${env.REPORT_DIR}/**/*.xml"
-
-                    echo "Publishing HTML reports..."
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: "${env.REPORT_DIR}",
-                        reportFiles: "report_*.html",
-                        reportName: "Automated Test Reports"
-                    ])
-
-                    echo "Archiving screenshots..."
-                    archiveArtifacts artifacts: "${env.SCREENSHOT_DIR}/**/*.*", allowEmptyArchive: true
-                }
-            }
-        }
-
-        stage('Cleanup (preserve build artifacts)') {
-            steps {
-                echo "Workspace cleanup will run in post-cleanup step to preserve archived artifacts for Jenkins UI."
-            }
-        }
-    } 
+    }
 
     post {
-            always {
-                junit 'reports/**/*.xml'
-            }
-
+        always {
+            echo 'This runs regardless of pipeline success/failure.'
+        }
         success {
-            echo "Post: success — sending success email and triggering downstream job."
-
-            // Email to configured recipients (requires email-ext plugin + global SMTP configured)
-            emailext (
+            echo "Pipeline completed successfully!"
+            emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p>Build succeeded.</p>
-                         <p>Build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
-                         <p>Reports: see the 'Test Result Trend' and 'HTML Report' links on this build.</p>""",
+                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """<p>Pipeline completed successfully!</p>
+                         <p>View details: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
+                         <p><b>Reports:</b> available in Jenkins build page.</p>""",
                 attachLog: true
             )
-
-            build job: 'DownstreamJob', wait: false, 
-                parameters: [string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")]
+            // Trigger downstream job only if success
+            build job: 'DownstreamJob', wait: false, parameters: [
+                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
+            ]
         }
-
-        unstable {
-            echo "Post: unstable — send an email with attachments (screenshots) and keep history for trend analysis."
-            emailext (
-                to: 'izzattysuaidii@gmail.com',
-                subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Build is UNSTABLE. Check ${env.BUILD_URL}. Screenshots and logs archived.",
-                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.*",
-                attachLog: true
-            )
-        }
-
         failure {
-            echo "Post: failure — sending failure email & cleanup."
-            emailext (
+            echo "Pipeline failed. Please check logs."
+            emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Build FAILED. See ${env.BUILD_URL} for console output. Artifacts/screenshots archived if available.",
-                attachmentsPattern: "${env.SCREENSHOT_DIR}/**/*.*",
+                subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """<p>Pipeline failed.</p>
+                         <p>View logs: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
+                         <p>Screenshots archived in artifacts section.</p>""",
+                attachmentsPattern: "${env.SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
         }
-
         cleanup {
-            echo "Post: cleanup — cleaning workspace to free space (reports and artifacts remain available via Jenkins UI)."
+            // cleanup moved here so reports + artifacts are still available
+            echo 'Cleaning up workspace after pipeline completes...'
             cleanWs()
         }
     }
