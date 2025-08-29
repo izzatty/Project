@@ -48,38 +48,39 @@ pipeline {
             }
         }
 
-        stage('Test Execution') {
-            steps {
-                script {
-                    retry(1) {
-                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
-                        sh """
+       stage('Test Execution') {
+    steps {
+        script {
+            retry(1) {
+                echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
+                sh """
+mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
 
-                        # dummy junit report
-                        cat > ${REPORT_DIR}/test-results.xml <<EOF
-                        <testsuite tests="1" failures="0" time="0.123">
-                          <testcase classname="dummy" name="test_pass" time="0.001"/>
-                        </testsuite>
-                        EOF
+# dummy junit report
+cat > ${REPORT_DIR}/test-results.xml <<EOF
+<testsuite tests="1" failures="0" time="0.123">
+  <testcase classname="dummy" name="test_pass" time="0.001"/>
+</testsuite>
+EOF
 
-                        # dummy HTML report
-                        cat > ${REPORT_DIR}/index.html <<EOF
-                        <html>
-                          <body>
-                            <h1>Test Report</h1>
-                            <p>Executed: ${params.TEST_SUITE} on ${params.BROWSER}</p>
-                            <p>Base URL: ${params.BASE_URL}</p>
-                          </body>
-                        </html>
-                        EOF
+# dummy HTML report
+cat > ${REPORT_DIR}/index.html <<EOF
+<html>
+  <body>
+    <h1>Test Report</h1>
+    <p>Executed: ${params.TEST_SUITE} on ${params.BROWSER}</p>
+    <p>Base URL: ${params.BASE_URL}</p>
+  </body>
+</html>
+EOF
 
-                        # dummy screenshot
-                        echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
-                        """
-                    }
-                }
+# dummy screenshot
+echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
+"""
             }
         }
+    }
+}
 
         stage('Report Generation') {
             steps {
