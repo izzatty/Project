@@ -145,9 +145,10 @@ pipeline {
     } 
 
     post {
-        // always available: final cleanup that runs after archiving/publishing
-        always {
-            echo "Post: always — archiving additional info if present."
+        post {
+            always {
+                junit 'reports/**/*.xml'
+            }
         }
 
         success {
