@@ -57,15 +57,21 @@ pipeline {
                     retry(1) {
                         echo "Running smoke tests on chrome..."
                         sh '''
-                            mkdir -p ${REPORT_DIR}
-                            cat > ${REPORT_DIR}/test-results.xml <<EOF
-                            <testsuite tests="2" failures="1" time="0.123">
-                              <testcase classname="dummy" name="test_pass" time="0.001"/>
-                              <testcase classname="dummy" name="test_fail" time="0.002">
-                                <failure message="Assertion failed">Expected X but got Y</failure>
-                              </testcase>
-                            </testsuite>
-                            EOF
+                        mkdir -p reports
+                        mkdir -p screenshots
+
+                        # dummy junit report
+                        cat > reports/test-results.xml <<EOF
+                        <testsuite tests="2" failures="1" time="0.123">
+                          <testcase classname="dummy" name="test_pass" time="0.001"/>
+                          <testcase classname="dummy" name="test_fail" time="0.002">
+                            <failure message="Assertion failed">Expected X but got Y</failure>
+                          </testcase>
+                        </testsuite>
+                        EOF
+
+                        # dummy screenshot so Jenkins has something to archive
+                        echo "fake image" > screenshots/screenshot1.png
                         '''
                     }
                 }
