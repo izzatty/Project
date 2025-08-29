@@ -72,6 +72,7 @@ pipeline {
 
                         # dummy screenshot so Jenkins has something to archive
                         echo "fake image" > screenshots/screenshot1.png
+                        ls -l screenshots
                         '''
                     }
                 }
