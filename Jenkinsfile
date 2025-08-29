@@ -28,7 +28,7 @@ pipeline {
 
         stage('Environment Preparation') {
             steps {
-                echo "Preparing environment for dev"
+                echo "Preparing environment for ${params.BASE_URL}"
                 sh "mkdir -p ${env.REPORT_DIR}"
             }
         }
@@ -54,7 +54,6 @@ pipeline {
         stage('Report Generation') {
             steps {
                 echo 'Generating reports...'
-                // sh 'generate_reports.sh'
                 archiveArtifacts artifacts: "${env.REPORT_DIR}/*.xml", allowEmptyArchive: true
             }
         }
@@ -62,7 +61,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 echo 'Cleaning up workspace...'
-                deleteDir() // Clean the workspace
+                deleteDir()
             }
         }
     }
@@ -72,19 +71,20 @@ pipeline {
             echo 'This runs regardless of pipeline success/failure.'
         }
         success {
-        echo "Pipeline completed successfully!"
-        emailext(
-            to: 'izzattysuaidii@gmail.com',
-            subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
-        )
-    }
+            echo "Pipeline completed successfully!"
+            emailext(
+                to: 'izzattysuaidii@gmail.com',
+                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
+            )
+        }
         failure {
-        echo "Pipeline failed. Please check logs."
-        emailext(
-            to: 'izzattysuaidii@gmail.com',
-            subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: "Oops! The pipeline failed.\n\nCheck the console output for details: ${env.BUILD_URL}"
-        )
+            echo "Pipeline failed. Please check logs."
+            emailext(
+                to: 'izzattysuaidii@gmail.com',
+                subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Oops! The pipeline failed.\n\nCheck the console output for details: ${env.BUILD_URL}"
+            )
+        }
     }
 }
