@@ -97,6 +97,17 @@ echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
                     def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
                     if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
                         echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
+                    } else {
+                        echo "Running non-critical tests..."
+                        sh """
+# Simulate non-critical tests
+echo "Executing non-critical tests..."
+cat > ${REPORT_DIR}/non_critical.xml <<EOF
+<testsuite tests="1" failures="0" time="0.045">
+  <testcase classname="dummy" name="non_critical_test" time="0.001"/>
+</testsuite>
+EOF
+"""
                     }
                 }
             }
