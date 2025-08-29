@@ -52,38 +52,41 @@ pipeline {
         }
 
         stage('Test Execution') {
-            script {
-                retry(1) {
-                    echo "Running smoke tests on chrome..."
-                    sh '''
-                        mkdir -p reports
-                        cat > reports/test-results.xml <<EOF
-                        <testsuite tests="2" failures="1" time="0.123">
-                        <testcase classname="dummy" name="test_pass" time="0.001"/>
-                        <testcase classname="dummy" name="test_fail" time="0.002">
-                        <failure message="Assertion failed">Expected X but got Y</failure>
-                      </testcase>
-                    </testsuite>
-                    EOF
-                '''
+            steps {
+                script {
+                    retry(1) {
+                        echo "Running smoke tests on chrome..."
+                        sh '''
+                            mkdir -p reports
+                            cat > reports/test-results.xml <<EOF
+                            <testsuite tests="2" failures="1" time="0.123">
+                              <testcase classname="dummy" name="test_pass" time="0.001"/>
+                              <testcase classname="dummy" name="test_fail" time="0.002">
+                                <failure message="Assertion failed">Expected X but got Y</failure>
+                              </testcase>
+                            </testsuite>
+                            EOF
+                        '''
+                    }
+                }
             }
         }
-    }
 
         stage('Report Generation') {
-            echo "Publishing JUnit results..."
-            junit 'reports/*.xml'
+            steps {
+                echo "Publishing JUnit test results"
+                junit '**/reports/*.xml'
 
-            echo "Publishing HTML reports..."
-            publishHTML([allowMissing: false,
-                         alwaysLinkToLastBuild: true,
-                         keepAll: true,
-                         reportDir: 'reports',
-                         reportFiles: 'index.html',
-                         reportName: 'Test Report'])
+                echo "Publishing HTML report"
+                publishHTML(target: [
+                    reportDir: 'target/site',
+                    reportFiles: 'index.html',
+                    reportName: 'HTML Report'
+                ])
 
-            echo "Archiving screenshots..."
-            archiveArtifacts artifacts: 'screenshots/*.png', allowEmptyArchive: true
+                echo "Archiving screenshots"
+                archiveArtifacts artifacts: 'screenshots/*.png', allowEmptyArchive: true
+            }
         }
 
         stage('Cleanup') {
