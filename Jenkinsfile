@@ -19,7 +19,7 @@ pipeline {
         )
         choice(
             name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge'],
+            choices: ['chrome', 'firefox', 'edge', 'all'],
             description: 'Browser Selection'
         )
         string(
@@ -43,11 +43,11 @@ pipeline {
 
         stage('Environment Preparation') {
             steps {
-                echo "Preparing environment for https://parabank.parasoft.com"
-                sh '''
+                echo "Preparing environment for ${params.BASE_URL}"
+                sh """
                     mkdir -p ${REPORT_DIR}
                     mkdir -p ${SCREENSHOT_DIR}
-                '''
+                """
             }
         }
 
@@ -55,13 +55,12 @@ pipeline {
             steps {
                 script {
                     retry(1) {
-                        echo "Running smoke tests on chrome..."
-                        sh '''
-                        mkdir -p reports
-                        mkdir -p screenshots
+                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
+                        sh """
+                            mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
 
                         # dummy junit report
-                        cat > reports/test-results.xml <<EOF
+                        cat > ${REPORT_DIR}/test-results.xml <<EOF
                         <testsuite tests="2" failures="1" time="0.123">
                           <testcase classname="dummy" name="test_pass" time="0.001"/>
                           <testcase classname="dummy" name="test_fail" time="0.002">
@@ -75,7 +74,8 @@ pipeline {
                         <html>
                           <body>
                             <h1>Test Report</h1>
-                            <p>All tests completed.</p>
+                            <p>Executed: ${params.TEST_SUITE} on ${params.BROWSER}</p>
+                            <p>Base URL: ${params.BASE_URL}</p>
                           </body>
                         </html>
                         EOF
@@ -83,7 +83,7 @@ pipeline {
                         # dummy screenshot
                         echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
                         ls -l screenshots
-                        '''
+                        """
                     }
                 }
             }
@@ -136,6 +136,19 @@ pipeline {
             build job: 'DownstreamJob', wait: false, parameters: [
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
             ]
+        }
+
+        unstable {
+            echo "Pipeline completed with test failures (UNSTABLE). Check reports."
+            emailext(
+                to: 'izzattysuaidii@gmail.com',
+                subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """<p>Pipeline completed with test failures.</p>
+                         <p>View logs: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
+                         <p>Screenshots archived in artifacts section.</p>""",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
+                attachLog: true
+            )
         }
         failure {
             echo "Pipeline failed. Please check logs."
