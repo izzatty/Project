@@ -3,11 +3,8 @@ pipeline {
 
     // Build Triggers
     triggers {
-        // Poll SCM (simulates webhook) - checks repo every 5 minutes
-        pollSCM('H/5 * * * *')
-
-        // Scheduled build:
-        cron('H 2 * * *')
+        pollSCM('H/5 * * * *') // Simulated webhook
+        cron('H 2 * * *') // Scheduled build
     }
 
     //  Parameterized Manual Trigger
