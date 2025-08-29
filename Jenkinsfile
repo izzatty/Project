@@ -52,8 +52,6 @@ pipeline {
         stage('Test Execution') {
             steps {
                 script {
-                     // Load the shared library (optional if already globally configured)
-                    @Library('runBrowserTests') _
                     
                     // Determine day of week (1=Mon, 7=Sun)
                     def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
