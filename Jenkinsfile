@@ -66,15 +66,32 @@ pipeline {
                     // Determine target browsers
                     def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
 
-                    targetBrowsers.each { browser ->
-                        lock(resource: "browser-${browser}", inversePrecedence: true) { // queue builds for same browser
-                            node(browserAgentMap[browser]) {
-                                echo "Running ${selectedTest} tests on ${browser}..."
+                   targetBrowsers.each { browser ->
+                // Lock per browser to avoid simultaneous access
+                lock(resource: "browser-${browser}", inversePrecedence: true) {
+                    node(browserAgentMap[browser]) {
+                        // Lock global resource for heavy tests
+                        if (selectedTest == 'full') {
+                            lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
+                                runBrowserTests(browser, selectedTest)
+                            }
+                        } else {
+                            runBrowserTests(browser, selectedTest)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-                                def startTime = System.currentTimeMillis()
+// Helper function to run tests per browser
+def runBrowserTests(browser, testSuite) {
+    echo "Running ${testSuite} tests on ${browser}..."
+    def startTime = System.currentTimeMillis()
 
-                                retry(2) {
-                                    sh """
+    retry(2) {
+        sh """
 mkdir -p ${REPORT_DIR}/${browser} ${SCREENSHOT_DIR}/${browser}
 
 # dummy junit report
@@ -98,30 +115,23 @@ EOF
 # dummy screenshot
 echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
 """
-                    }
-                    // Skip non-critical tests if elapsed time > MAX_BUILD_TIME_MIN
-                    def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
-                    if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
-                        echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
-                    } else {
-                        echo "Running non-critical tests..."
-                        sh """
+    }
+                   def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
+    if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
+        echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
+    } else {
+        echo "Running non-critical tests..."
+        sh """
 # Simulate non-critical tests
 echo "Executing non-critical tests..."
-cat > ${REPORT_DIR}/non_critical.xml <<EOF
+cat > ${REPORT_DIR}/${browser}/non_critical.xml <<EOF
 <testsuite tests="1" failures="0" time="0.045">
   <testcase classname="dummy" name="non_critical_test" time="0.001"/>
 </testsuite>
 EOF
 """
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+    }
+}
         stage('Report Generation') {
             steps {
                 echo "Publishing JUnit test results"
