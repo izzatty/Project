@@ -1,6 +1,11 @@
 pipeline {
-    agent any
-
+    agent {
+        docker {
+            image 'cypress/included:15.0.0'   // Cypress with Node + Chrome + Firefox preinstalled
+            args '-u root:root'               // run as root to avoid permission issues
+        }
+    }
+    
     // Build triggers: poll SCM (simulates webhook) + cron
     triggers {
         pollSCM('H/5 * * * *')   // polling every 5 minutes (simulates webhook)
@@ -10,7 +15,7 @@ pipeline {
     // Parameters (parameterized manual triggers)
     parameters {
         choice(name: 'TEST_SUITE', choices: ['smoke', 'regression', 'full'], description: 'Test suite to execute')
-        choice(name: 'BROWSER', choices: ['all', 'chrome', 'firefox', 'edge'], description: 'Browser Selection (use "all" to run parallel across browsers)')
+        choice(name: 'BROWSER', choices: ['all', 'chrome', 'firefox', 'edge'], description: 'Browser Selection')
         string(name: 'BASE_URL', defaultValue: 'https://parabank.parasoft.com', description: 'Environment URL')
     }
 
@@ -42,7 +47,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh 'npm ci'
             }
         }
 
@@ -132,7 +137,7 @@ pipeline {
             }
 
         success {
-            echo "Post: success — sending success email and triggering downstream job (if configured)."
+            echo "Post: success — sending success email and triggering downstream job."
 
             // Email to configured recipients (requires email-ext plugin + global SMTP configured)
             emailext (
