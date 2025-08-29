@@ -79,8 +79,11 @@ pipeline {
 
                 echo "Publishing HTML report"
                 publishHTML([
-                    reportDir: 'target/site',
-                    reportFiles: 'index.html',
+                    allowMissing: true,              // don’t fail build if report folder is missing
+                    alwaysLinkToLastBuild: true,     // keeps link always pointing to latest build
+                    keepAll: true,                   // keep past reports
+                    reportDir: 'reports',            // directory where the report lives
+                    reportFiles: 'index.html',       // the actual file(s) to publish
                     reportName: 'HTML Report'
                 ])
 
