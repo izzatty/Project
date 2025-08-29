@@ -82,7 +82,6 @@ pipeline {
 
                         # dummy screenshot
                         echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
-                        ls -l screenshots
                         """
                     }
                 }
@@ -92,7 +91,6 @@ pipeline {
         stage('Report Generation') {
             steps {
                 echo "Publishing JUnit test results"
-                // This is what drives the "Test Result Trend" graph
                 junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
 
                 echo "Publishing HTML report"
@@ -100,7 +98,7 @@ pipeline {
                     allowMissing: true,              // don’t fail build if report folder is missing
                     alwaysLinkToLastBuild: true,     // keeps link always pointing to latest build
                     keepAll: true,                   // keep past reports
-                    reportDir: 'reports',            // directory where the report lives
+                    reportDir: "${REPORT_DIR}",      // directory where the report lives
                     reportFiles: 'index.html',       // the actual file(s) to publish
                     reportName: 'HTML Report'
                 ])
@@ -112,8 +110,7 @@ pipeline {
 
         stage('Cleanup') {
             steps {
-                echo 'Cleaning up workspace...'
-                deleteDir()
+                echo 'Cleaning workspace will be done in post.cleanup'
             }
         }
     }
@@ -123,15 +120,12 @@ pipeline {
             echo 'This runs regardless of pipeline success/failure.'
         }
         success {
-            echo "Pipeline completed successfully!"
-            emailext(
-                to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p>Pipeline completed successfully!</p>
-                         <p>View details: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
-                         <p><b>Reports:</b> available in Jenkins build page.</p>""",
-                attachLog: true
-            )
+        emailext(
+            to: 'izzattysuaidii@gmail.com',
+            subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+            attachLog: true
+        )
             // Trigger downstream job only if success
             build job: 'DownstreamJob', wait: false, parameters: [
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
@@ -139,33 +133,27 @@ pipeline {
         }
 
         unstable {
-            echo "Pipeline completed with test failures (UNSTABLE). Check reports."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p>Pipeline completed with test failures.</p>
-                         <p>View logs: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
-                         <p>Screenshots archived in artifacts section.</p>""",
+                body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
                 attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
         }
         failure {
-            echo "Pipeline failed. Please check logs."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p>Pipeline failed.</p>
-                         <p>View logs: <a href='${env.BUILD_URL}'>Build ${env.BUILD_NUMBER}</a></p>
-                         <p>Screenshots archived in artifacts section.</p>""",
-                attachmentsPattern: "${env.SCREENSHOT_DIR}/*.png",
+                body: "Pipeline failed. View details: ${env.BUILD_URL}",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
         }
         cleanup {
             // cleanup moved here so reports + artifacts are still available
             echo 'Cleaning up workspace after pipeline completes...'
-            cleanWs()
+            deleteDir()
         }
     }
 }
