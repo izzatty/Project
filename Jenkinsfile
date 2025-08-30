@@ -41,14 +41,14 @@ pipeline {
 
     stages {
         stage('Build') {
-            agent { label 'lightweight' }
+            agent any
             steps {
                 echo "Starting build pipeline..."
             }
         }
 
         stage('Environment Preparation') {
-            agent { label 'lightweight' }
+            agent any
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
                 sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
@@ -56,7 +56,7 @@ pipeline {
         }
 
         stage('Select Test Suite') {
-            agent { label 'lightweight' }
+            agent any
             steps {
                 script {
                     // Challenge 1: Smart test selection (Mon–Fri smoke, Sat–Sun full)
@@ -116,7 +116,7 @@ pipeline {
         }
 
         stage('Non-Critical Tests') {
-            agent { label 'lightweight' }
+            agent any
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -133,7 +133,7 @@ pipeline {
         }
 
         stage('Report Generation') {
-            agent { label 'lightweight' }
+            agent any
             steps {
                 echo "Publishing JUnit test results"
                 junit allowEmptyResults: true, testResults: "${REPORT_DIR}/**/*.xml"
@@ -154,7 +154,7 @@ pipeline {
         }
 
         stage('Cleanup') {
-            agent { label 'lightweight' }
+            agent any
             steps {
                 echo 'Cleaning workspace will be done in post.cleanup'
             }
