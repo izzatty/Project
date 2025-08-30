@@ -1,5 +1,5 @@
 // Load global trusted library
-@Library('runBrowserTests') _   // <-- this matches the name you set in Jenkins Global Pipeline Libraries
+@Library('runBrowserTests') _ 
 
 pipeline {
     agent any
