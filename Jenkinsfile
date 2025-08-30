@@ -51,7 +51,7 @@ pipeline {
         stage('Environment Preparation') {
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                bat "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
+                sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
             }
         }
 
