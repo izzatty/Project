@@ -115,6 +115,23 @@ pipeline {
             }
         }
 
+        stage('Non-Critical Tests') {
+            agent { label 'lightweight' }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    try {
+                        echo "Running non-critical tests..."
+                        sh './run-noncritical-tests.sh'
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        echo "⏱️ Skipping non-critical tests because build exceeded 30 minutes."
+                    }
+                }
+            }
+        }
+
         stage('Report Generation') {
             agent { label 'lightweight' }
             steps {
