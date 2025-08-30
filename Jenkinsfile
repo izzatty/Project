@@ -2,12 +2,7 @@
 @Library('runBrowserTests') _
 
 pipeline {
-    // Dynamic resource management: allocate agent based on TEST_SUITE
-    agent {
-        label { 
-            return params.TEST_SUITE == 'full' ? 'high-memory' : 'lightweight'
-        }
-    }
+    agent none   // don't tie the whole pipeline to one node
 
     triggers {
         pollSCM('H/5 * * * *') // Simulated webhook
@@ -46,59 +41,82 @@ pipeline {
 
     stages {
         stage('Build') {
+            agent { label 'lightweight' }
             steps {
                 echo "Starting build pipeline..."
             }
         }
 
         stage('Environment Preparation') {
+            agent { label 'lightweight' }
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
                 sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
             }
         }
 
-        stage('Test Execution') {
+        stage('Select Test Suite') {
+            agent { label 'lightweight' }
             steps {
                 script {
                     // Challenge 1: Smart test selection (Mon–Fri smoke, Sat–Sun full)
-                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
+                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')) as int
                     def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
                     echo "Selected test suite based on day: ${selectedTest}"
 
-                    // Override with parameter if user manually selected
+                    // Override if parameter is provided
                     if (params.TEST_SUITE) {
                         selectedTest = params.TEST_SUITE
                         echo "Overriding with parameter: ${selectedTest}"
                     }
 
-                    // Choose browsers
-                    def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
+                    env.TEST_SUITE = selectedTest
+                }
+            }
+        }
 
-                    // Run tests in parallel with retries + timeout
-                    def branches = targetBrowsers.collectEntries { browser ->
-                        ["${browser}": {
-                            retry(2) {  // Retry failed tests up to 2 times
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests(
-                                        browser,
-                                        selectedTest,
-                                        env.REPORT_DIR,
-                                        env.SCREENSHOT_DIR,
-                                        env.MAX_BUILD_TIME_MIN,
-                                        params.BASE_URL
-                                    )
-                                }
+        stage('Browser Tests') {
+            parallel {
+                stage('Chrome') {
+                    when { anyOf { expression { params.BROWSER == 'chrome' }; expression { params.BROWSER == 'all' } } }
+                    agent { label 'agent-chrome' }
+                    steps {
+                        retry(2) {
+                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
                             }
-                        }]
+                        }
                     }
+                }
 
-                    parallel branches
+                stage('Firefox') {
+                    when { anyOf { expression { params.BROWSER == 'firefox' }; expression { params.BROWSER == 'all' } } }
+                    agent { label 'agent-firefox' }
+                    steps {
+                        retry(2) {
+                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                            }
+                        }
+                    }
+                }
+
+                stage('Edge') {
+                    when { anyOf { expression { params.BROWSER == 'edge' }; expression { params.BROWSER == 'all' } } }
+                    agent { label 'agent-edge' }
+                    steps {
+                        retry(2) {
+                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                            }
+                        }
+                    }
                 }
             }
         }
 
         stage('Report Generation') {
+            agent { label 'lightweight' }
             steps {
                 echo "Publishing JUnit test results"
                 junit allowEmptyResults: true, testResults: "${REPORT_DIR}/**/*.xml"
@@ -119,6 +137,7 @@ pipeline {
         }
 
         stage('Cleanup') {
+            agent { label 'lightweight' }
             steps {
                 echo 'Cleaning workspace will be done in post.cleanup'
             }
