@@ -81,9 +81,11 @@ pipeline {
                     when { anyOf { expression { params.BROWSER == 'chrome' }; expression { params.BROWSER == 'all' } } }
                     agent { label 'chrome-node' }
                     steps {
-                        retry(2) {
-                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                        lock(resource: 'chrome-node-lock', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                }
                             }
                         }
                     }
@@ -93,9 +95,11 @@ pipeline {
                     when { anyOf { expression { params.BROWSER == 'firefox' }; expression { params.BROWSER == 'all' } } }
                     agent { label 'firefox-node' }
                     steps {
-                        retry(2) {
-                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                        lock(resource: 'firefox-node-lock', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                }
                             }
                         }
                     }
@@ -105,9 +109,11 @@ pipeline {
                     when { anyOf { expression { params.BROWSER == 'edge' }; expression { params.BROWSER == 'all' } } }
                     agent { label 'edge-node' }
                     steps {
-                        retry(2) {
-                            timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                        lock(resource: 'edge-node-lock', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                }
                             }
                         }
                     }
