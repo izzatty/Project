@@ -4,9 +4,7 @@
 pipeline {
     // Dynamic resource management: allocate agent based on TEST_SUITE
     agent {
-        label { 
-            return params.TEST_SUITE == 'full' ? 'high-memory' : 'lightweight'
-        }
+        label "${params.TEST_SUITE == 'full' ? 'high-memory' : 'lightweight'}"
     }
 
     triggers {
@@ -17,7 +15,7 @@ pipeline {
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'full regression'],
+            choices: ['smoke', 'full'],
             description: 'Test suite to execute'
         )
         choice(
