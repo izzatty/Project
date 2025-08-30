@@ -4,7 +4,9 @@
 pipeline {
     // Dynamic resource management: allocate agent based on TEST_SUITE
     agent {
-        label "${params.TEST_SUITE == 'full' ? 'high-memory' : 'lightweight'}"
+        label { 
+            return params.TEST_SUITE == 'full' ? 'high-memory' : 'lightweight'
+        }
     }
 
     triggers {
