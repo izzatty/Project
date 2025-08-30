@@ -41,14 +41,14 @@ pipeline {
 
     stages {
         stage('Build') {
-            agent any
+            agent { label 'chrome-node' }
             steps {
                 echo "Starting build pipeline..."
             }
         }
 
         stage('Environment Preparation') {
-            agent any
+            agent { label 'chrome-node' }
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
                 sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
@@ -56,7 +56,7 @@ pipeline {
         }
 
         stage('Select Test Suite') {
-            agent any
+            agent { label 'chrome-node' }
             steps {
                 script {
                     // Challenge 1: Smart test selection (Mon–Fri smoke, Sat–Sun full)
@@ -116,7 +116,7 @@ pipeline {
         }
 
         stage('Non-Critical Tests') {
-            agent any
+            agent { label 'chrome-node' }
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -133,7 +133,7 @@ pipeline {
         }
 
         stage('Report Generation') {
-            agent any
+            agent { label 'chrome-node' }
             steps {
                 echo "Publishing JUnit test results"
                 junit allowEmptyResults: true, testResults: "${REPORT_DIR}/**/*.xml"
@@ -154,7 +154,7 @@ pipeline {
         }
 
         stage('Cleanup') {
-            agent any
+            agent { label 'chrome-node' }
             steps {
                 echo 'Cleaning workspace will be done in post.cleanup'
             }
