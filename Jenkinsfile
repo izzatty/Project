@@ -35,6 +35,12 @@ pipeline {
         MAX_BUILD_TIME_MIN = 30
     }
 
+    options {
+        timeout(time: 45, unit: 'MINUTES') // Auto-abort long builds
+        buildDiscarder(logRotator(numToKeepStr: '15')) // Keep last 15 builds
+        timestamps() // Add timestamps in console logs
+    }
+
     stages {
         stage('Build') {
             steps {
@@ -50,86 +56,92 @@ pipeline {
         }
 
         stage('Test Execution') {
-            steps {
-                script {
+            failFast true
+            parallel {
+                stage('Dynamic Browser Tests') {
+                    steps {
+                        script {
+                            // Determine day of week (1=Mon, 7=Sun)
+                            def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
                     
-                    // Determine day of week (1=Mon, 7=Sun)
-                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
-                    
-                    // Smart test selection
-                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
-                    echo "Selected test suite based on day: ${selectedTest}"
+                            // Smart test selection
+                            def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
+                            echo "Selected test suite based on day: ${selectedTest}"
 
-                    // Map browsers to agent labels
-                    def browserAgentMap = [
-                        chrome: 'agent-chrome',
-                        firefox: 'agent-firefox',
-                        edge: 'agent-edge'
-                    ]
+                            // Map browsers to agent labels
+                            def browserAgentMap = [
+                                chrome: 'agent-chrome',
+                                firefox: 'agent-firefox',
+                                edge: 'agent-edge'
+                            ]
 
-                    // Determine target browsers
-                    def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
+                            // Determine target browsers
+                            def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
 
-                    targetBrowsers.each { browser ->
-                        // Lock per browser to avoid simultaneous access
-                        lock(resource: "browser-${browser}", inversePrecedence: true) {
-                            node(browserAgentMap[browser]) {
-                                // Lock global resource for heavy tests
-                                if (selectedTest == 'full') {
-                                    lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
-                                        runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                            targetBrowsers.each { browser ->
+                                // Lock per browser to avoid simultaneous access
+                                 retry(2) { // Retry flaky tests twice
+                                    lock(resource: "browser-${browser}", inversePrecedence: true) {
+                                        node(browserAgentMap[browser]) {
+                                            // Lock global resource for heavy tests
+                                            if (selectedTest == 'full') {
+                                                lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
+                                                    runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                                    }
+                                                } else {
+                                                    runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                                }
+                                            }
+                                        }
                                     }
-                                } else {
-                                    runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
                                 }
                             }
                         }
                     }
                 }
             }
-        }
 
-        stage('Report Generation') {
-            steps {
-                echo "Publishing JUnit test results"
-                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
+            stage('Report Generation') {
+                steps {
+                    echo "Publishing JUnit test results"
+                    junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
 
-                echo "Publishing HTML report"
-                publishHTML([
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${REPORT_DIR}",
-                    reportFiles: 'index.html',
-                    reportName: 'HTML Report'
-                ])
+                    echo "Publishing HTML report"
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: "${REPORT_DIR}",
+                        reportFiles: 'index.html',
+                        reportName: 'HTML Report'
+                    ])
 
-                echo "Archiving screenshots"
-                archiveArtifacts artifacts: "${SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
+                    echo "Archiving screenshots"
+                    archiveArtifacts artifacts: "${SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
+                }
+            }
+
+            stage('Cleanup') {
+                steps {
+                    echo 'Cleaning workspace will be done in post.cleanup'
+                }
             }
         }
 
-        stage('Cleanup') {
-            steps {
-                echo 'Cleaning workspace will be done in post.cleanup'
+        post {
+            always {
+                echo 'This runs regardless of pipeline success/failure.'
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'This runs regardless of pipeline success/failure.'
-        }
-        success {
-            echo "Pipeline completed successfully!"
-            emailext(
-                to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
-                attachLog: true
-            )
-            build job: 'DownstreamJob', wait: false, parameters: [
-                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
+            success {
+                echo "Pipeline completed successfully!"
+                emailext(
+                    to: 'izzattysuaidii@gmail.com',
+                    subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+                    attachLog: true
+                )
+                build job: 'DownstreamJob', wait: false, parameters: [
+                    string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
             ]
         }
         unstable {
