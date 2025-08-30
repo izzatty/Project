@@ -1,25 +1,25 @@
+// Load global trusted library
+@Library('runBrowserTests') _   // <-- this matches the name you set in Jenkins Global Pipeline Libraries
+
 pipeline {
     agent any
 
     // Build Triggers
     triggers {
-        // Poll SCM (simulates webhook) - checks repo every 5 minutes
-        pollSCM('H/5 * * * *')
-
-        // (Optional) Scheduled build example:
-        // cron('H 2 * * *')
+        pollSCM('H/5 * * * *') // Simulated webhook
+        cron('H 2 * * *') // Scheduled build
     }
 
-    //  Parameterized Manual Trigger
+    // Parameterized Manual Trigger
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'regression', 'full'],
+            choices: ['smoke', 'full regression'],
             description: 'Test suite to execute'
         )
         choice(
             name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge'],
+            choices: ['chrome', 'firefox', 'edge', 'all'],
             description: 'Browser Selection'
         )
         string(
@@ -31,6 +31,8 @@ pipeline {
 
     environment {
         REPORT_DIR = 'reports'
+        SCREENSHOT_DIR = 'screenshots'
+        MAX_BUILD_TIME_MIN = 30
     }
 
     stages {
@@ -43,21 +45,45 @@ pipeline {
         stage('Environment Preparation') {
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                sh "mkdir -p ${env.REPORT_DIR}"
+                sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
             }
         }
 
         stage('Test Execution') {
             steps {
                 script {
-                    retry(2) { // Retry flaky tests
-                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
-                        
-                        // Placeholder for real test commands
-                        sh """
-                        sleep 2
-                        echo '<testsuite><testcase classname="dummy" name="test1"/></testsuite>' > ${env.REPORT_DIR}/dummy_${params.TEST_SUITE}.xml
-                        """
+                    
+                    // Determine day of week (1=Mon, 7=Sun)
+                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
+                    
+                    // Smart test selection
+                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
+                    echo "Selected test suite based on day: ${selectedTest}"
+
+                    // Map browsers to agent labels
+                    def browserAgentMap = [
+                        chrome: 'agent-chrome',
+                        firefox: 'agent-firefox',
+                        edge: 'agent-edge'
+                    ]
+
+                    // Determine target browsers
+                    def targetBrowsers = params.BROWSER == 'all' ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
+
+                    targetBrowsers.each { browser ->
+                        // Lock per browser to avoid simultaneous access
+                        lock(resource: "browser-${browser}", inversePrecedence: true) {
+                            node(browserAgentMap[browser]) {
+                                // Lock global resource for heavy tests
+                                if (selectedTest == 'full') {
+                                    lock(resource: 'heavy-test-slot', quantity: 2) { // max 2 full tests at a time
+                                        runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                    }
+                                } else {
+                                    runBrowserTests(browser, selectedTest, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -65,15 +91,27 @@ pipeline {
 
         stage('Report Generation') {
             steps {
-                echo 'Generating reports...'
-                archiveArtifacts artifacts: "${env.REPORT_DIR}/*.xml", allowEmptyArchive: true
+                echo "Publishing JUnit test results"
+                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
+
+                echo "Publishing HTML report"
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: "${REPORT_DIR}",
+                    reportFiles: 'index.html',
+                    reportName: 'HTML Report'
+                ])
+
+                echo "Archiving screenshots"
+                archiveArtifacts artifacts: "${SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
             }
         }
 
         stage('Cleanup') {
             steps {
-                echo 'Cleaning up workspace...'
-                deleteDir()
+                echo 'Cleaning workspace will be done in post.cleanup'
             }
         }
     }
@@ -87,20 +125,36 @@ pipeline {
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Good news! The pipeline completed successfully.\n\nCheck the build details: ${env.BUILD_URL}"
+                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+                attachLog: true
             )
-            // Trigger downstream job only if success
             build job: 'DownstreamJob', wait: false, parameters: [
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
             ]
         }
+        unstable {
+            echo "Pipeline completed with test failures (UNSTABLE)."
+            emailext(
+                to: 'izzattysuaidii@gmail.com',
+                subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
+                attachLog: true
+            )
+        }
         failure {
-            echo "Pipeline failed. Please check logs."
+            echo "Pipeline failed."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Oops! The pipeline failed.\n\nCheck the console output for details: ${env.BUILD_URL}"
+                body: "Pipeline failed. View details: ${env.BUILD_URL}",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
+                attachLog: true
             )
+        }
+        cleanup {
+            echo 'Cleaning up workspace after pipeline completes...'
+            deleteDir()
         }
     }
 }
