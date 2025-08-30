@@ -70,7 +70,7 @@ pipeline {
                         echo "Overriding with parameter: ${selectedTest}"
                     }
 
-                    env.TEST_SUITE = selectedTest
+                    env.TEST_SUITE = selectedTest.toString()
                 }
             }
         }
