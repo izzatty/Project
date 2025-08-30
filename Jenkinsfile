@@ -79,7 +79,7 @@ pipeline {
             parallel {
                 stage('Chrome') {
                     when { anyOf { expression { params.BROWSER == 'chrome' }; expression { params.BROWSER == 'all' } } }
-                    agent { label 'agent-chrome' }
+                    agent { label 'chrome-node' }
                     steps {
                         retry(2) {
                             timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
@@ -91,7 +91,7 @@ pipeline {
 
                 stage('Firefox') {
                     when { anyOf { expression { params.BROWSER == 'firefox' }; expression { params.BROWSER == 'all' } } }
-                    agent { label 'agent-firefox' }
+                    agent { label 'firefox-node' }
                     steps {
                         retry(2) {
                             timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
@@ -103,7 +103,7 @@ pipeline {
 
                 stage('Edge') {
                     when { anyOf { expression { params.BROWSER == 'edge' }; expression { params.BROWSER == 'all' } } }
-                    agent { label 'agent-edge' }
+                    agent { label 'edge-node' }
                     steps {
                         retry(2) {
                             timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
