@@ -203,7 +203,7 @@ pipeline {
             node {
                 echo 'Cleaning up workspace after pipeline completes...'
                 deleteDir()
-            
+            }
         }
     }
 }
