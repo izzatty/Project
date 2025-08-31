@@ -11,7 +11,7 @@ pipeline {
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'full regression'],
+            choices: ['smoke', 'regression'],   // 🔧 fixed mismatch with Determine Test Suite
             description: 'Test suite to execute'
         )
         choice(
@@ -44,7 +44,6 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 script {
-                    // Force Git to use system default to avoid tool mismatch errors
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "*/main"]],
@@ -52,22 +51,6 @@ pipeline {
                         extensions: []
                     ])
                 }
-            }
-        }
-
-        //stage('Debug') {
-           // agent { label 'chrome-node' }
-          //  steps {
-             //   script {
-              //      echo "isUnix() = ${isUnix()}"
-                //    if (isUnix()) {
-                //        sh 'uname -a'
-                //        sh 'which git'
-                //    } else {
-                //        bat 'ver'
-                //        bat 'where git'
-                //    }
-               // }
             }
         }
 
@@ -125,7 +108,7 @@ pipeline {
             }
         }
 
-         stage('Non-Critical Tests') {
+        stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
             steps {
                 script {
@@ -144,7 +127,7 @@ pipeline {
             }
         }
 
-       stage('Performance Metrics') {
+        stage('Performance Metrics') {
             agent { label 'chrome-node' }
             steps {
                 script {
@@ -185,9 +168,11 @@ pipeline {
             }
         }
         success {
-            echo "Pipeline completed successfully!"
-            // Slack simulation
-            echo "SLACK: Build SUCCESS for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            script {
+                echo "Pipeline completed successfully!"
+                addBadge(icon: "accept.gif", text: "SUCCESS")   // ✅ Green badge
+                echo "SLACK: Build SUCCESS for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            }
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -196,8 +181,11 @@ pipeline {
             )
         }
         unstable {
-            echo "Pipeline completed with test failures (UNSTABLE)."
-            echo "SLACK: Build UNSTABLE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            script {
+                echo "Pipeline completed with test failures (UNSTABLE)."
+                addBadge(icon: "warning.gif", text: "UNSTABLE") // 🟡 Yellow badge
+                echo "SLACK: Build UNSTABLE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            }
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -207,8 +195,11 @@ pipeline {
             )
         }
         failure {
-            echo "Pipeline failed."
-            echo "SLACK: Build FAILURE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            script {
+                echo "Pipeline failed."
+                addBadge(icon: "error.gif", text: "FAILURE")   // 🔴 Red badge
+                echo "SLACK: Build FAILURE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            }
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
