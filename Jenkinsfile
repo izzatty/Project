@@ -2,7 +2,7 @@
 @Library('runBrowserTests') _
 
 pipeline {
-    agent none   // don't tie the whole pipeline to one node
+    agent none
 
     triggers {
         pollSCM('H/5 * * * *') // Simulated webhook
@@ -59,18 +59,16 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 script {
-                    // Challenge 1: Smart test selection (Mon–Fri smoke, Sat–Sun full)
                     def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')) as int
                     def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full'
                     echo "Selected test suite based on day: ${selectedTest}"
 
-                    // Override if parameter is provided
                     if (params.TEST_SUITE) {
                         selectedTest = params.TEST_SUITE
                         echo "Overriding with parameter: ${selectedTest}"
                     }
 
-                    env.TEST_SUITE = selectedTest.toString()
+                    env.TEST_SUITE = selectedTest
                 }
             }
         }
@@ -123,9 +121,7 @@ pipeline {
 
         stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
+            options { timeout(time: 30, unit: 'MINUTES') }
             steps {
                 script {
                     try {
@@ -156,13 +152,6 @@ pipeline {
 
                 echo "Archiving screenshots"
                 archiveArtifacts artifacts: "${SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
-            }
-        }
-
-        stage('Cleanup') {
-            agent { label 'chrome-node' }
-            steps {
-                echo 'Cleaning workspace will be done in post.cleanup'
             }
         }
     }
@@ -207,6 +196,7 @@ pipeline {
             node {
                 echo 'Cleaning up workspace after pipeline completes...'
                 deleteDir()
+            }
         }
     }
 }
