@@ -1,11 +1,12 @@
+// Load global trusted library
 @Library('runBrowserTests') _
 
 pipeline {
-    agent none
+    agent none  // Keep agent none to control per-stage agents
 
     triggers {
-        pollSCM('H/5 * * * *')
-        cron('H 2 * * *')
+        pollSCM('H/5 * * * *') // Poll repo every 5 minutes
+        cron('H 2 * * *')      // Scheduled build at 2am
     }
 
     parameters {
@@ -167,9 +168,9 @@ pipeline {
     post {
         always {
             node {
-            echo 'Running always block: cleaning up workspace'
-            deleteDir()
-            }    
+                echo 'Cleaning workspace...'
+                deleteDir()
+            }
         }
         success {
             node {
@@ -180,6 +181,8 @@ pipeline {
                     body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
                     attachLog: true
                 )
+
+                // Trigger downstream job
                 build job: 'DownstreamJob', wait: false, parameters: [
                     string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
                 ]
