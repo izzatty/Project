@@ -1,7 +1,7 @@
 @Library('runBrowserTests') _
 
 pipeline {
-    agent none
+    agent none  // Use none globally since we assign agents per stage
 
     triggers {
         pollSCM('H/5 * * * *')
@@ -16,7 +16,7 @@ pipeline {
         )
         choice(
             name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge', 'all'],
+            choices: ['chrome', 'firefox', 'edge', 'all'],  // all included
             description: 'Browser Selection'
         )
         string(
@@ -77,74 +77,79 @@ pipeline {
         }
 
         stage('Browser Tests') {
-            steps {
-                script {
-                    def branches = [:]
-
-                    if (params.BROWSER == 'chrome' || params.BROWSER == 'all') {
-                        branches['Chrome'] = {
-                            node('chrome-node') {
-                                lock(resource: 'browser-chrome', quantity: 1) {
-                                    retry(2) {
-                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                            runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                        }
-                                    }
+            parallel {
+                stage('Chrome') {
+                    when {
+                        expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' }
+                    }
+                    agent { label 'chrome-node' }
+                    steps {
+                        lock(resource: 'browser-chrome', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
                                 }
                             }
                         }
                     }
+                }
 
-                    if (params.BROWSER == 'firefox' || params.BROWSER == 'all') {
-                        branches['Firefox'] = {
-                            node('firefox-node') {
-                                lock(resource: 'browser-firefox', quantity: 1) {
-                                    retry(2) {
-                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                            runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                        }
-                                    }
+                stage('Firefox') {
+                    when {
+                        expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' }
+                    }
+                    agent { label 'firefox-node' }
+                    steps {
+                        lock(resource: 'browser-firefox', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
                                 }
                             }
                         }
                     }
+                }
 
-                    if (params.BROWSER == 'edge' || params.BROWSER == 'all') {
-                        branches['Edge'] = {
-                            node('edge-node') {
-                                lock(resource: 'browser-edge', quantity: 1) {
-                                    retry(2) {
-                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                            runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                        }
-                                    }
+                stage('Edge') {
+                    when {
+                        expression { params.BROWSER == 'edge' || params.BROWSER == 'all' }
+                    }
+                    agent { label 'edge-node' }
+                    steps {
+                        lock(resource: 'browser-edge', quantity: 1) {
+                            retry(2) {
+                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                    runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
                                 }
                             }
                         }
                     }
-
-                    parallel branches
                 }
             }
         }
+
         stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
             steps {
                 script {
-                    try {
+                    def elapsedMinutes = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 60000
+                    if (elapsedMinutes < env.MAX_BUILD_TIME_MIN.toInteger()) {
                         echo "Running non-critical tests..."
-                        if (isUnix()) {
-                            sh './run-noncritical-tests.sh'
-                        } else {
-                            bat 'run-noncritical-tests.bat'
+                        try {
+                            if (isUnix()) {
+                                sh './run-noncritical-tests.sh'
+                            } else {
+                                bat 'run-noncritical-tests.bat'
+                            }
+                        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                            echo "⏱️ Skipping non-critical tests (timeout)."
                         }
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        echo "⏱️ Skipping non-critical tests (timeout)."
+                    } else {
+                        echo "⏱️ Skipping non-critical tests as build time exceeded ${env.MAX_BUILD_TIME_MIN} minutes."
                     }
                 }
             }
         }
-
         stage('Report Generation') {
             agent { label 'chrome-node' }
             steps {
