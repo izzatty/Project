@@ -167,13 +167,13 @@ pipeline {
 
     post {
         always {
-            node {
+            node('chrome-node') {
                 echo 'Cleaning workspace...'
                 deleteDir()
             }
         }
         success {
-            node {
+            node('chrome-node') {
                 echo "Pipeline completed successfully!"
                 emailext(
                     to: 'izzattysuaidii@gmail.com',
@@ -189,7 +189,7 @@ pipeline {
             }
         }
         unstable {
-            node {
+            node('chrome-node') {
                 echo "Pipeline completed with test failures (UNSTABLE)."
                 emailext(
                     to: 'izzattysuaidii@gmail.com',
