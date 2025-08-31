@@ -55,7 +55,8 @@ pipeline {
                     if (isUnix()) {
                         sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
                     } else {
-                        bat "mkdir ${REPORT_DIR} ${SCREENSHOT_DIR}"
+                        bat "if not exist ${REPORT_DIR} mkdir ${REPORT_DIR}"
+                        bat "if not exist ${SCREENSHOT_DIR} mkdir ${SCREENSHOT_DIR}"
                     }
                 }
             }
@@ -201,7 +202,7 @@ pipeline {
             }
         }
         failure {
-            node {
+            node('chrome-node') {
                 echo "Pipeline failed."
                 emailext(
                     to: 'izzattysuaidii@gmail.com',
