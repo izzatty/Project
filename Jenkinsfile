@@ -203,11 +203,10 @@ pipeline {
                 attachLog: true
             )
         }
-        post {
-    cleanup {
-        node {
-            echo 'Cleaning up workspace after pipeline completes...'
-            deleteDir()
+        cleanup {
+            node {
+                echo 'Cleaning up workspace after pipeline completes...'
+                deleteDir()
         }
     }
 }
