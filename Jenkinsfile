@@ -50,7 +50,13 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
+                script {
+                    if (isUnix()) {
+                        sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
+                    } else {
+                        bat "mkdir ${REPORT_DIR} ${SCREENSHOT_DIR}"
+                    }
+                }
             }
         }
 
@@ -120,12 +126,15 @@ pipeline {
 
         stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
-            options { timeout(time: 30, unit: 'MINUTES') }
             steps {
                 script {
                     try {
                         echo "Running non-critical tests..."
-                        sh './run-noncritical-tests.sh'
+                        if (isUnix()) {
+                            sh './run-noncritical-tests.sh'
+                        } else {
+                            bat 'run-noncritical-tests.bat'
+                        }
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
                         echo "⏱️ Skipping non-critical tests because build exceeded 30 minutes."
                     }
@@ -162,40 +171,43 @@ pipeline {
             deleteDir()
             }    
         }
-
         success {
-            echo "Pipeline completed successfully!"
-            emailext(
-                to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
-                attachLog: true
-            )
-            build job: 'DownstreamJob', wait: false, parameters: [
-                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
-            ]
+            node {
+                echo "Pipeline completed successfully!"
+                emailext(
+                    to: 'izzattysuaidii@gmail.com',
+                    subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+                    attachLog: true
+                )
+                build job: 'DownstreamJob', wait: false, parameters: [
+                    string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
+                ]
+            }
         }
-
         unstable {
-            echo "Pipeline completed with test failures (UNSTABLE)."
-            emailext(
-                to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
-                attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
-                attachLog: true
-            )
+            node {
+                echo "Pipeline completed with test failures (UNSTABLE)."
+                emailext(
+                    to: 'izzattysuaidii@gmail.com',
+                    subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
+                    attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
+                    attachLog: true
+                )
+            }
         }
-
         failure {
-            echo "Pipeline failed."
-            emailext(
-                to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline failed. View details: ${env.BUILD_URL}",
-                attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
-                attachLog: true
-            )
+            node {
+                echo "Pipeline failed."
+                emailext(
+                    to: 'izzattysuaidii@gmail.com',
+                    subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Pipeline failed. View details: ${env.BUILD_URL}",
+                    attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
+                    attachLog: true
+                )
+            }
         }
     }
 }
