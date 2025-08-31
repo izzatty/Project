@@ -43,19 +43,23 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 script {
-                    // Detect if running on Windows or Linux
-                    def isWindows = isUnix() == false
+                    // Detect Windows vs Linux agent
+                    def isWindows = !isUnix()
                     def gitToolName = isWindows ? "Git-Windows" : "Git-Linux"
+
+                    echo "Using Git tool: ${gitToolName} on ${isWindows ? 'Windows' : 'Linux'}"
 
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "*/main"]],
                         userRemoteConfigs: [[url: "https://github.com/izzatty/Project.git"]],
+                        extensions: [],
                         gitTool: gitToolName
                     ])
                 }
             }
         }
+
         stage('Build') {
             agent { label 'chrome-node' }
             steps {
