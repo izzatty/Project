@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    tools {
+        git 'Git-Windows'
+        nodejs 'Node24'
+    }
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timestamps()
+    }
+
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    try {
+                        bat 'npm install'
+                        bat 'npm test'
+                    } finally {
+                        publishHTML([
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'reports',
+                            reportFiles: 'index.html',
+                            reportName: 'Test Report'
+                        ])
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning workspace after build..."
+            cleanWs()
+        }
+        failure {
+            echo "Build failed. Please check logs."
+        }
+        unstable {
+            echo "Build unstable. Some tests failed."
+        }
+        success {
+            echo "Build succeeded!"
+        }
+    }
+}
