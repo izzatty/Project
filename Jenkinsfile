@@ -157,8 +157,10 @@ pipeline {
 
     post {
         always {
+            node {
             echo 'Running always block: cleaning up workspace'
             deleteDir()
+            }    
         }
 
         success {
