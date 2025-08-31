@@ -5,7 +5,7 @@ pipeline {
 
     triggers {
         pollSCM('H/5 * * * *')
-        cron('H 2 * * *')
+        cron('H 2 * * * *')
     }
 
     parameters {
@@ -87,14 +87,16 @@ pipeline {
                         lock(resource: 'browser-chrome') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests(
-                                        "chrome",
-                                        env.TEST_SUITE,
-                                        env.REPORT_DIR,
-                                        env.SCREENSHOT_DIR,
-                                        env.MAX_BUILD_TIME_MIN,
-                                        params.BASE_URL
-                                    )
+                                    script {
+                                        runBrowserTests(
+                                            "chrome",
+                                            env.TEST_SUITE,
+                                            env.REPORT_DIR,
+                                            env.SCREENSHOT_DIR,
+                                            env.MAX_BUILD_TIME_MIN,
+                                            params.BASE_URL
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -110,14 +112,16 @@ pipeline {
                         lock(resource: 'browser-firefox') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests(
-                                        "firefox",
-                                        env.TEST_SUITE,
-                                        env.REPORT_DIR,
-                                        env.SCREENSHOT_DIR,
-                                        env.MAX_BUILD_TIME_MIN,
-                                        params.BASE_URL
-                                    )
+                                    script {
+                                        runBrowserTests(
+                                            "firefox",
+                                            env.TEST_SUITE,
+                                            env.REPORT_DIR,
+                                            env.SCREENSHOT_DIR,
+                                            env.MAX_BUILD_TIME_MIN,
+                                            params.BASE_URL
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -133,14 +137,16 @@ pipeline {
                         lock(resource: 'browser-edge') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests(
-                                        "edge",
-                                        env.TEST_SUITE,
-                                        env.REPORT_DIR,
-                                        env.SCREENSHOT_DIR,
-                                        env.MAX_BUILD_TIME_MIN,
-                                        params.BASE_URL
-                                    )
+                                    script {
+                                        runBrowserTests(
+                                            "edge",
+                                            env.TEST_SUITE,
+                                            env.REPORT_DIR,
+                                            env.SCREENSHOT_DIR,
+                                            env.MAX_BUILD_TIME_MIN,
+                                            params.BASE_URL
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -196,8 +202,10 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning workspace...'
-            deleteDir()
+            node('chrome-node') {
+                echo 'Cleaning workspace...'
+                deleteDir()
+            }
         }
         success {
             echo "Pipeline completed successfully!"
