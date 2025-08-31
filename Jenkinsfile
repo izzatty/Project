@@ -1,12 +1,11 @@
-// Load global trusted library
 @Library('runBrowserTests') _
 
 pipeline {
     agent none
 
     triggers {
-        pollSCM('H/5 * * * *') // Simulated webhook
-        cron('H 2 * * *')      // Scheduled build
+        pollSCM('H/5 * * * *')
+        cron('H 2 * * *')
     }
 
     parameters {
@@ -154,19 +153,14 @@ pipeline {
                 archiveArtifacts artifacts: "${SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
             }
         }
-
-        stage('Cleanup') {
-            agent { label 'chrome-node' }
-            steps {
-                echo 'Cleanup will run in post block'
-            }
-        }
     }
 
     post {
         always {
-            echo 'This runs regardless of pipeline success/failure.'
+            echo 'Running always block: cleaning up workspace'
+            deleteDir()
         }
+
         success {
             echo "Pipeline completed successfully!"
             emailext(
@@ -179,6 +173,7 @@ pipeline {
                 string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
             ]
         }
+
         unstable {
             echo "Pipeline completed with test failures (UNSTABLE)."
             emailext(
@@ -189,6 +184,7 @@ pipeline {
                 attachLog: true
             )
         }
+
         failure {
             echo "Pipeline failed."
             emailext(
@@ -200,10 +196,4 @@ pipeline {
             )
         }
     }
-        cleanup {
-            node {
-                echo 'Cleaning up workspace after pipeline completes...'
-                deleteDir()
-            }
-        }
-    }
+}
