@@ -45,7 +45,6 @@ pipeline {
                 script {
                     // Detect if running on Windows or Linux
                     def isWindows = isUnix() == false
-
                     def gitToolName = isWindows ? "Git-Windows" : "Git-Linux"
 
                     checkout([
@@ -56,6 +55,7 @@ pipeline {
                     ])
                 }
             }
+        }
         stage('Build') {
             agent { label 'chrome-node' }
             steps {
