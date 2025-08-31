@@ -11,7 +11,7 @@ pipeline {
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'regression'],
+            choices: ['smoke', 'full regression'],
             description: 'Test suite to execute'
         )
         choice(
@@ -29,6 +29,7 @@ pipeline {
     environment {
         REPORT_DIR = 'reports'
         SCREENSHOT_DIR = 'screenshots'
+        PERF_DIR = 'performance'
         MAX_BUILD_TIME_MIN = 30
     }
 
@@ -43,36 +44,30 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 script {
-                    // Detect Windows vs Linux agent
-                    def isWindows = !isUnix()
-                    def gitToolName = isWindows ? "Git-Windows" : "Git-Linux"
-
-                    echo "Using Git tool: ${gitToolName} on ${isWindows ? 'Windows' : 'Linux'}"
-
+                    // Force Git to use system default to avoid tool mismatch errors
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "*/main"]],
                         userRemoteConfigs: [[url: "https://github.com/izzatty/Project.git"]],
-                        extensions: [],
-                        gitTool: gitToolName
+                        extensions: []
                     ])
                 }
             }
         }
 
-        stage('Debug') {
-            agent { label 'chrome-node' }
-            steps {
-                script {
-                    echo "isUnix() = ${isUnix()}"
-                    if (isUnix()) {
-                        sh 'uname -a'
-                        sh 'which git'
-                    } else {
-                        bat 'ver'
-                        bat 'where git'
-                    }
-                }
+        //stage('Debug') {
+           // agent { label 'chrome-node' }
+          //  steps {
+             //   script {
+              //      echo "isUnix() = ${isUnix()}"
+                //    if (isUnix()) {
+                //        sh 'uname -a'
+                //        sh 'which git'
+                //    } else {
+                //        bat 'ver'
+                //        bat 'where git'
+                //    }
+               // }
             }
         }
 
@@ -90,6 +85,7 @@ pipeline {
                 bat """
                     if not exist ${REPORT_DIR} mkdir ${REPORT_DIR}
                     if not exist ${SCREENSHOT_DIR} mkdir ${SCREENSHOT_DIR}
+                    if not exist ${PERF_DIR} mkdir ${PERF_DIR}
                 """
             }
         }
@@ -110,85 +106,26 @@ pipeline {
         }
 
         stage('Browser Tests') {
-            parallel {
-                stage('Chrome') {
-                    when {
-                        expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' }
-                    }
-                    agent { label 'chrome-node' }
-                    steps {
-                        lock(resource: 'browser-chrome') {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    script {
-                                        runBrowserTests(
-                                            "chrome",
-                                            env.TEST_SUITE,
-                                            env.REPORT_DIR,
-                                            env.SCREENSHOT_DIR,
-                                            env.MAX_BUILD_TIME_MIN,
-                                            params.BASE_URL
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Firefox') {
-                    when {
-                        expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' }
-                    }
-                    agent { label 'firefox-node' }
-                    steps {
-                        lock(resource: 'browser-firefox') {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    script {
-                                        runBrowserTests(
-                                            "firefox",
-                                            env.TEST_SUITE,
-                                            env.REPORT_DIR,
-                                            env.SCREENSHOT_DIR,
-                                            env.MAX_BUILD_TIME_MIN,
-                                            params.BASE_URL
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Edge') {
-                    when {
-                        expression { params.BROWSER == 'edge' || params.BROWSER == 'all' }
-                    }
-                    agent { label 'edge-node' }
-                    steps {
-                        lock(resource: 'browser-edge') {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    script {
-                                        runBrowserTests(
-                                            "edge",
-                                            env.TEST_SUITE,
-                                            env.REPORT_DIR,
-                                            env.SCREENSHOT_DIR,
-                                            env.MAX_BUILD_TIME_MIN,
-                                            params.BASE_URL
-                                        )
-                                    }
-                                }
-                            }
+            agent { label 'chrome-node' }
+            steps {
+                retry(2) {
+                    timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                        script {
+                            runBrowserTests(
+                                params.BROWSER,
+                                env.TEST_SUITE,
+                                env.REPORT_DIR,
+                                env.SCREENSHOT_DIR,
+                                env.MAX_BUILD_TIME_MIN,
+                                params.BASE_URL
+                            )
                         }
                     }
                 }
             }
         }
 
-        stage('Non-Critical Tests') {
+         stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
             steps {
                 script {
@@ -204,6 +141,17 @@ pipeline {
                         echo "⏱️ Skipping non-critical tests as build time exceeded ${env.MAX_BUILD_TIME_MIN} minutes."
                     }
                 }
+            }
+        }
+
+       stage('Performance Metrics') {
+            agent { label 'chrome-node' }
+            steps {
+                script {
+                    echo "Simulating performance log..."
+                    writeFile file: "${PERF_DIR}/perf.log", text: "ResponseTime(ms)=${new Random().nextInt(500)}"
+                }
+                archiveArtifacts artifacts: "${PERF_DIR}/*.log", allowEmptyArchive: true
             }
         }
 
@@ -238,6 +186,8 @@ pipeline {
         }
         success {
             echo "Pipeline completed successfully!"
+            // Slack simulation
+            echo "SLACK: Build SUCCESS for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -247,6 +197,7 @@ pipeline {
         }
         unstable {
             echo "Pipeline completed with test failures (UNSTABLE)."
+            echo "SLACK: Build UNSTABLE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -257,6 +208,7 @@ pipeline {
         }
         failure {
             echo "Pipeline failed."
+            echo "SLACK: Build FAILURE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
             emailext(
                 to: 'izzattysuaidii@gmail.com',
                 subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
