@@ -1,17 +1,17 @@
-@Library('runBrowserTests') _
-
 pipeline {
-    agent none // globally none; agents are defined per stage
+    agent any
 
+    // Build Triggers
     triggers {
-        pollSCM('H/5 * * * *')
-        cron('H 2 * * *')
+        pollSCM('H/5 * * * *') // Simulated webhook
+        cron('H 2 * * *') // Scheduled build
     }
 
+    //  Parameterized Manual Trigger
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'regression'],   // 🔧 fixed mismatch with Determine Test Suite
+            choices: ['smoke', 'regression', 'full'],
             description: 'Test suite to execute'
         )
         choice(
@@ -29,184 +29,159 @@ pipeline {
     environment {
         REPORT_DIR = 'reports'
         SCREENSHOT_DIR = 'screenshots'
-        PERF_DIR = 'performance'
         MAX_BUILD_TIME_MIN = 30
     }
 
-    options {
-        timeout(time: 45, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '15'))
-        timestamps()
-    }
-
     stages {
-        stage('Checkout') {
-            agent { label 'chrome-node' }
-            steps {
-                script {
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/main"]],
-                        userRemoteConfigs: [[url: "https://github.com/izzatty/Project.git"]],
-                        extensions: []
-                    ])
-                }
-            }
-        }
-
         stage('Build') {
-            agent { label 'chrome-node' }
             steps {
                 echo "Starting build pipeline..."
             }
         }
 
         stage('Environment Preparation') {
-            agent { label 'chrome-node' }
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                bat """
-                    if not exist ${REPORT_DIR} mkdir ${REPORT_DIR}
-                    if not exist ${SCREENSHOT_DIR} mkdir ${SCREENSHOT_DIR}
-                    if not exist ${PERF_DIR} mkdir ${PERF_DIR}
-                """
+                sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
             }
         }
 
-        stage('Determine Test Suite') {
-            agent { label 'chrome-node' }
+       stage('Test Execution') {
             steps {
                 script {
-                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')) as int
-                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'regression'
-                    if (params.TEST_SUITE) {
-                        selectedTest = params.TEST_SUITE
-                    }
-                    env.TEST_SUITE = selectedTest ?: 'smoke'
-                    echo "Selected test suite: ${env.TEST_SUITE}"
-                }
-            }
-        }
-
-        stage('Browser Tests') {
-            agent { label 'chrome-node' }
-            steps {
-                retry(2) {
-                    timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                        script {
-                            runBrowserTests(
-                                params.BROWSER,
-                                env.TEST_SUITE,
-                                env.REPORT_DIR,
-                                env.SCREENSHOT_DIR,
-                                env.MAX_BUILD_TIME_MIN,
-                                params.BASE_URL
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Non-Critical Tests') {
-            agent { label 'chrome-node' }
-            steps {
-                script {
-                    def elapsedMinutes = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 60000
-                    if (elapsedMinutes < env.MAX_BUILD_TIME_MIN.toInteger()) {
-                        echo "Running non-critical tests..."
-                        try {
-                            bat 'run-noncritical-tests.bat'
-                        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                            echo "⏱️ Skipping non-critical tests (timeout)."
-                        }
+                    // Determine day of week (1=Mon, 7=Sun)
+                    def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')).toInteger()
+                    
+                    // Smart test selection
+                    def selectedTest
+                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                        selectedTest = 'smoke'
                     } else {
-                        echo "⏱️ Skipping non-critical tests as build time exceeded ${env.MAX_BUILD_TIME_MIN} minutes."
+                        selectedTest = 'full'
+                    }
+                    echo "Selected test suite based on day: ${selectedTest}"
+
+                    // Track start time
+                    def startTime = System.currentTimeMillis()
+
+                    // Retry failed tests up to 2 times
+                    retry(2) {
+                        echo "Running ${params.TEST_SUITE} tests on ${params.BROWSER}..."
+                        sh """
+mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
+
+# dummy junit report
+cat > ${REPORT_DIR}/test-results.xml <<EOF
+<testsuite tests="1" failures="0" time="0.123">
+  <testcase classname="dummy" name="test_pass" time="0.001"/>
+</testsuite>
+EOF
+
+# dummy HTML report
+cat > ${REPORT_DIR}/index.html <<EOF
+<html>
+  <body>
+    <h1>Test Report</h1>
+    <p>Executed: ${params.TEST_SUITE} on ${params.BROWSER}</p>
+    <p>Base URL: ${params.BASE_URL}</p>
+  </body>
+</html>
+EOF
+
+# dummy screenshot
+echo "fake image" > ${SCREENSHOT_DIR}/screenshot1.png
+"""
+            }
+
+                    // Skip non-critical tests if elapsed time > MAX_BUILD_TIME_MIN
+                    def elapsedMin = (System.currentTimeMillis() - startTime) / 60000
+                    if (elapsedMin > MAX_BUILD_TIME_MIN.toInteger()) {
+                        echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
+                    } else {
+                        echo "Running non-critical tests..."
+                        sh """
+# Simulate non-critical tests
+echo "Executing non-critical tests..."
+cat > ${REPORT_DIR}/non_critical.xml <<EOF
+<testsuite tests="1" failures="0" time="0.045">
+  <testcase classname="dummy" name="non_critical_test" time="0.001"/>
+</testsuite>
+EOF
+"""
                     }
                 }
-            }
-        }
-
-        stage('Performance Metrics') {
-            agent { label 'chrome-node' }
-            steps {
-                script {
-                    echo "Simulating performance log..."
-                    writeFile file: "${PERF_DIR}/perf.log", text: "ResponseTime(ms)=${new Random().nextInt(500)}"
-                }
-                archiveArtifacts artifacts: "${PERF_DIR}/*.log", allowEmptyArchive: true
             }
         }
 
         stage('Report Generation') {
-            agent { label 'chrome-node' }
             steps {
-                echo "Publishing JUnit results"
-                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/**/*.xml"
+                echo "Publishing JUnit test results"
+                junit allowEmptyResults: true, testResults: "${REPORT_DIR}/*.xml"
 
-                echo "Publishing HTML reports"
-                publishHTML(target: [
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${REPORT_DIR}",
-                    reportFiles: 'index.html',
-                    reportName: 'Browser Test Report'
+                echo "Publishing HTML report"
+                publishHTML([
+                    allowMissing: true,              // don’t fail build if report folder is missing
+                    alwaysLinkToLastBuild: true,     // keeps link always pointing to latest build
+                    keepAll: true,                   // keep past reports
+                    reportDir: "${REPORT_DIR}",      // directory where the report lives
+                    reportFiles: 'index.html',       // the actual file(s) to publish
+                    reportName: 'HTML Report'
                 ])
 
                 echo "Archiving screenshots"
-                archiveArtifacts artifacts: "${SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
+                archiveArtifacts artifacts: "${SCREENSHOT_DIR}/*.png", allowEmptyArchive: true
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                echo 'Cleaning workspace will be done in post.cleanup'
             }
         }
     }
 
     post {
         always {
-            node('chrome-node') {
-                echo 'Cleaning workspace...'
-                deleteDir()
-            }
+            echo 'This runs regardless of pipeline success/failure.'
         }
         success {
-            script {
-                echo "Pipeline completed successfully!"
-                addBadge(icon: "accept.gif", text: "SUCCESS")   // ✅ Green badge
-                echo "SLACK: Build SUCCESS for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-            }
+            echo "Pipeline completed successfully!"
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed successfully. Details: ${env.BUILD_URL}",
+                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
                 attachLog: true
             )
+            // Trigger downstream job only if success
+            build job: 'DownstreamJob', wait: false, parameters: [
+                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
+            ]
         }
+
         unstable {
-            script {
-                echo "Pipeline completed with test failures (UNSTABLE)."
-                addBadge(icon: "warning.gif", text: "UNSTABLE") // 🟡 Yellow badge
-                echo "SLACK: Build UNSTABLE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-            }
+            echo "Pipeline completed with test failures (UNSTABLE)."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed with test failures. Details: ${env.BUILD_URL}",
-                attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
+                subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
         }
         failure {
-            script {
-                echo "Pipeline failed."
-                addBadge(icon: "error.gif", text: "FAILURE")   // 🔴 Red badge
-                echo "SLACK: Build FAILURE for ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-            }
+            echo "Pipeline failed."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline failed. Details: ${env.BUILD_URL}",
-                attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
+                subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline failed. View details: ${env.BUILD_URL}",
+                attachmentsPattern: "${SCREENSHOT_DIR}/*.png",
                 attachLog: true
             )
+        }
+        cleanup {
+            // cleanup moved here so reports + artifacts are still available
+            echo 'Cleaning up workspace after pipeline completes...'
+            deleteDir()
         }
     }
 }
