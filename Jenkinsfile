@@ -199,6 +199,7 @@ pipeline {
                 attachLog: true
             )
         }
+    }
         cleanup {
             node {
                 echo 'Cleaning up workspace after pipeline completes...'
