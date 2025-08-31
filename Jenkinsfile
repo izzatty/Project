@@ -50,14 +50,10 @@ pipeline {
             agent { label 'chrome-node' }
             steps {
                 echo "Preparing environment for ${params.BASE_URL}"
-                script {
-                    if (isUnix()) {
-                        sh "mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}"
-                    } else {
-                        bat "if not exist ${REPORT_DIR} mkdir ${REPORT_DIR}"
-                        bat "if not exist ${SCREENSHOT_DIR} mkdir ${SCREENSHOT_DIR}"
-                    }
-                }
+                bat """
+                    if not exist ${REPORT_DIR} mkdir ${REPORT_DIR}
+                    if not exist ${SCREENSHOT_DIR} mkdir ${SCREENSHOT_DIR}
+                """
             }
         }
 
@@ -163,11 +159,7 @@ pipeline {
                     if (elapsedMinutes < env.MAX_BUILD_TIME_MIN.toInteger()) {
                         echo "Running non-critical tests..."
                         try {
-                            if (isUnix()) {
-                                sh './run-noncritical-tests.sh'
-                            } else {
-                                bat 'run-noncritical-tests.bat'
-                            }
+                            bat 'run-noncritical-tests.bat'
                         } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
                             echo "⏱️ Skipping non-critical tests (timeout)."
                         }
