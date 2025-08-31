@@ -3,7 +3,7 @@ def call(browser, testSuite, REPORT_DIR, SCREENSHOT_DIR, MAX_BUILD_TIME_MIN, BAS
     def startTime = System.currentTimeMillis()
 
     retry(2) {
-        sh """
+        sh """#!/bin/bash
 mkdir -p ${REPORT_DIR}/${browser} ${SCREENSHOT_DIR}/${browser}
 
 # dummy junit report
@@ -34,7 +34,7 @@ echo "fake image" > ${SCREENSHOT_DIR}/${browser}/screenshot1.png
         echo "Build exceeded ${MAX_BUILD_TIME_MIN} minutes. Skipping non-critical tests."
     } else {
         echo "Running non-critical tests..."
-        sh """
+        sh """#!/bin/bash
 # Simulate non-critical tests
 echo "Executing non-critical tests..."
 cat > ${REPORT_DIR}/${browser}/non_critical.xml <<EOF
