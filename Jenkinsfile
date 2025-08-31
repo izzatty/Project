@@ -77,46 +77,56 @@ pipeline {
         }
 
         stage('Browser Tests') {
-            parallel {
-                "Chrome": {
-                    when { anyOf { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } } }
-                    node('chrome-node') {
-                        lock(resource: 'browser-chrome', quantity: 1) {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                }
-                            }
-                        }
-                    }
-                },
-                "Firefox": {
-                    when { anyOf { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } } }
-                    node('firefox-node') {
-                        lock(resource: 'browser-firefox', quantity: 1) {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                }
-                            }
-                        }
-                    }
-                },
-                "Edge": {
-                    when { anyOf { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } } }
-                    node ('edge-node') {
-                        lock(resource: 'browser-edge', quantity: 1) {
-                            retry(2) {
-                                timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
-                                }
-                            }
-                        }
-                    }
-                }
-            )
-        }
+            steps {
+                script {
+                    def branches = [:]
 
+                    if (params.BROWSER == 'chrome' || params.BROWSER == 'all') {
+                        branches['Chrome'] = {
+                            node('chrome-node') {
+                                lock(resource: 'browser-chrome', quantity: 1) {
+                                    retry(2) {
+                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                            runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (params.BROWSER == 'firefox' || params.BROWSER == 'all') {
+                        branches['Firefox'] = {
+                            node('firefox-node') {
+                                lock(resource: 'browser-firefox', quantity: 1) {
+                                    retry(2) {
+                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                            runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (params.BROWSER == 'edge' || params.BROWSER == 'all') {
+                        branches['Edge'] = {
+                            node('edge-node') {
+                                lock(resource: 'browser-edge', quantity: 1) {
+                                    retry(2) {
+                                        timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
+                                            runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    parallel branches
+                }
+            }
+        }
         stage('Non-Critical Tests') {
             agent { label 'chrome-node' }
             steps {
