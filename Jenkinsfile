@@ -154,6 +154,13 @@ pipeline {
                 archiveArtifacts artifacts: "${SCREENSHOT_DIR}/**/*.png", allowEmptyArchive: true
             }
         }
+
+        stage('Cleanup') {
+            agent { label 'chrome-node' }
+            steps {
+                echo 'Cleanup will run in post block'
+            }
+        }
     }
 
     post {
@@ -196,7 +203,7 @@ pipeline {
             node {
                 echo 'Cleaning up workspace after pipeline completes...'
                 deleteDir()
-            }
+            
         }
     }
 }
