@@ -1,7 +1,7 @@
 @Library('runBrowserTests') _
 
 pipeline {
-    agent none  // Use none globally since we assign agents per stage
+    agent none // globally none; agents are defined per stage
 
     triggers {
         pollSCM('H/5 * * * *')
@@ -16,7 +16,7 @@ pipeline {
         )
         choice(
             name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge', 'all'],  // all included
+            choices: ['chrome', 'firefox', 'edge', 'all'],
             description: 'Browser Selection'
         )
         string(
@@ -84,10 +84,17 @@ pipeline {
                     }
                     agent { label 'chrome-node' }
                     steps {
-                        lock(resource: 'browser-chrome', quantity: 1) {
+                        lock(resource: 'browser-chrome') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("chrome", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                    runBrowserTests(
+                                        "chrome",
+                                        env.TEST_SUITE,
+                                        env.REPORT_DIR,
+                                        env.SCREENSHOT_DIR,
+                                        env.MAX_BUILD_TIME_MIN,
+                                        params.BASE_URL
+                                    )
                                 }
                             }
                         }
@@ -100,10 +107,17 @@ pipeline {
                     }
                     agent { label 'firefox-node' }
                     steps {
-                        lock(resource: 'browser-firefox', quantity: 1) {
+                        lock(resource: 'browser-firefox') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("firefox", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                    runBrowserTests(
+                                        "firefox",
+                                        env.TEST_SUITE,
+                                        env.REPORT_DIR,
+                                        env.SCREENSHOT_DIR,
+                                        env.MAX_BUILD_TIME_MIN,
+                                        params.BASE_URL
+                                    )
                                 }
                             }
                         }
@@ -116,10 +130,17 @@ pipeline {
                     }
                     agent { label 'edge-node' }
                     steps {
-                        lock(resource: 'browser-edge', quantity: 1) {
+                        lock(resource: 'browser-edge') {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
-                                    runBrowserTests("edge", env.TEST_SUITE, env.REPORT_DIR, env.SCREENSHOT_DIR, env.MAX_BUILD_TIME_MIN, params.BASE_URL)
+                                    runBrowserTests(
+                                        "edge",
+                                        env.TEST_SUITE,
+                                        env.REPORT_DIR,
+                                        env.SCREENSHOT_DIR,
+                                        env.MAX_BUILD_TIME_MIN,
+                                        params.BASE_URL
+                                    )
                                 }
                             }
                         }
@@ -150,6 +171,7 @@ pipeline {
                 }
             }
         }
+
         stage('Report Generation') {
             agent { label 'chrome-node' }
             steps {
