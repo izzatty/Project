@@ -1,18 +1,17 @@
-// Load global trusted library
 @Library('runBrowserTests') _
 
 pipeline {
-    agent none  // Keep agent none to control per-stage agents
+    agent none
 
     triggers {
-        pollSCM('H/5 * * * *') // Poll repo every 5 minutes
-        cron('H 2 * * *')      // Scheduled build at 2am
+        pollSCM('H/5 * * * *')
+        cron('H 2 * * *')
     }
 
     parameters {
         choice(
             name: 'TEST_SUITE',
-            choices: ['smoke', 'full regression'],
+            choices: ['smoke', 'regression'],
             description: 'Test suite to execute'
         )
         choice(
@@ -62,13 +61,12 @@ pipeline {
             }
         }
 
-        stage('Select Test Suite') {
+        stage('Determine Test Suite') {
             agent { label 'chrome-node' }
             steps {
                 script {
                     def dayOfWeek = new Date().format('u', TimeZone.getTimeZone('Asia/Kuala_Lumpur')) as int
-                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'full regression'
-
+                    def selectedTest = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 'smoke' : 'regression'
                     if (params.TEST_SUITE) {
                         selectedTest = params.TEST_SUITE
                     }
@@ -81,7 +79,7 @@ pipeline {
         stage('Browser Tests') {
             parallel failFast: false {
                 stage('Chrome') {
-                    when { anyOf { expression { params.BROWSER == 'chrome' }; expression { params.BROWSER == 'all' } } }
+                    when { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } }
                     agent { label 'chrome-node' }
                     steps {
                         lock(resource: 'browser-chrome', quantity: 1) {
@@ -95,7 +93,7 @@ pipeline {
                 }
 
                 stage('Firefox') {
-                    when { anyOf { expression { params.BROWSER == 'firefox' }; expression { params.BROWSER == 'all' } } }
+                    when { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } }
                     agent { label 'firefox-node' }
                     steps {
                         lock(resource: 'browser-firefox', quantity: 1) {
@@ -109,7 +107,7 @@ pipeline {
                 }
 
                 stage('Edge') {
-                    when { anyOf { expression { params.BROWSER == 'edge' }; expression { params.BROWSER == 'all' } } }
+                    when { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } }
                     agent { label 'edge-node' }
                     steps {
                         lock(resource: 'browser-edge', quantity: 1) {
@@ -136,7 +134,7 @@ pipeline {
                             bat 'run-noncritical-tests.bat'
                         }
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        echo "⏱️ Skipping non-critical tests because build exceeded 30 minutes."
+                        echo "⏱️ Skipping non-critical tests (timeout)."
                     }
                 }
             }
@@ -145,7 +143,7 @@ pipeline {
         stage('Report Generation') {
             agent { label 'chrome-node' }
             steps {
-                echo "Publishing JUnit test results"
+                echo "Publishing JUnit results"
                 junit allowEmptyResults: true, testResults: "${REPORT_DIR}/**/*.xml"
 
                 echo "Publishing HTML reports"
@@ -173,31 +171,27 @@ pipeline {
             echo "Pipeline completed successfully!"
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed successfully! View details: ${env.BUILD_URL}",
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed successfully. Details: ${env.BUILD_URL}",
                 attachLog: true
             )
-            // Trigger downstream job
-            build job: 'DownstreamJob', wait: false, parameters: [
-                string(name: 'UPSTREAM_BUILD', value: "${env.JOB_NAME} #${env.BUILD_NUMBER}")
-            ]
         }
         unstable {
             echo "Pipeline completed with test failures (UNSTABLE)."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline completed with test failures. View details: ${env.BUILD_URL}",
+                subject: "UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline completed with test failures. Details: ${env.BUILD_URL}",
                 attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
                 attachLog: true
-            )  
+            )
         }
         failure {
             echo "Pipeline failed."
             emailext(
                 to: 'izzattysuaidii@gmail.com',
-                subject: "Jenkins Pipeline FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline failed. View details: ${env.BUILD_URL}",
+                subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Pipeline failed. Details: ${env.BUILD_URL}",
                 attachmentsPattern: "${SCREENSHOT_DIR}/**/*.png",
                 attachLog: true
             )
