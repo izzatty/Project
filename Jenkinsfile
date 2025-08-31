@@ -42,6 +42,7 @@ pipeline {
         stage('Checkout') {
             agent { label 'chrome-node' }
             steps {
+                cleanWs()
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: "*/main"]],
