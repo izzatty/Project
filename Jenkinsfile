@@ -60,6 +60,22 @@ pipeline {
             }
         }
 
+        stage('Debug') {
+            agent { label 'chrome-node' }
+            steps {
+                script {
+                    echo "isUnix() = ${isUnix()}"
+                    if (isUnix()) {
+                        sh 'uname -a'
+                        sh 'which git'
+                    } else {
+                        bat 'ver'
+                        bat 'where git'
+                    }
+                }
+            }
+        }
+
         stage('Build') {
             agent { label 'chrome-node' }
             steps {
