@@ -70,8 +70,8 @@ pipeline {
                     if (params.TEST_SUITE) {
                         selectedTest = params.TEST_SUITE
                     }
-                    echo "Selected test suite: ${selectedTest}"
-                    env.TEST_SUITE = selectedTest
+                    env.TEST_SUITE = selectedTest ?: 'smoke'
+                    echo "Selected test suite: ${env.TEST_SUITE}"
                 }
             }
         }
