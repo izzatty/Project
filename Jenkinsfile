@@ -77,11 +77,10 @@ pipeline {
         }
 
         stage('Browser Tests') {
-            parallel failFast: false {
-                stage('Chrome') {
-                    when { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } }
-                    agent { label 'chrome-node' }
-                    steps {
+            parallel {
+                "Chrome": {
+                    when { anyOf { expression { params.BROWSER == 'chrome' || params.BROWSER == 'all' } } }
+                    node('chrome-node') {
                         lock(resource: 'browser-chrome', quantity: 1) {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
@@ -90,12 +89,10 @@ pipeline {
                             }
                         }
                     }
-                }
-
-                stage('Firefox') {
-                    when { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } }
-                    agent { label 'firefox-node' }
-                    steps {
+                },
+                "Firefox": {
+                    when { anyOf { expression { params.BROWSER == 'firefox' || params.BROWSER == 'all' } } }
+                    node('firefox-node') {
                         lock(resource: 'browser-firefox', quantity: 1) {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
@@ -104,12 +101,10 @@ pipeline {
                             }
                         }
                     }
-                }
-
-                stage('Edge') {
-                    when { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } }
-                    agent { label 'edge-node' }
-                    steps {
+                },
+                "Edge": {
+                    when { anyOf { expression { params.BROWSER == 'edge' || params.BROWSER == 'all' } } }
+                    node ('edge-node') {
                         lock(resource: 'browser-edge', quantity: 1) {
                             retry(2) {
                                 timeout(time: env.MAX_BUILD_TIME_MIN.toInteger(), unit: 'MINUTES') {
@@ -119,7 +114,7 @@ pipeline {
                         }
                     }
                 }
-            }
+            )
         }
 
         stage('Non-Critical Tests') {
