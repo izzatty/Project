@@ -42,17 +42,20 @@ pipeline {
         stage('Checkout') {
             agent { label 'chrome-node' }
             steps {
-                cleanWs()
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/main"]],
-                    userRemoteConfigs: [[
-                        url: "https://github.com/izzatty/Project.git"
-                    ]],
-                    gitTool: "Git-Windows" 
-                ])
+                script {
+                    // Detect if running on Windows or Linux
+                    def isWindows = isUnix() == false
+
+                    def gitToolName = isWindows ? "Git-Windows" : "Git-Linux"
+
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/main"]],
+                        userRemoteConfigs: [[url: "https://github.com/izzatty/Project.git"]],
+                        gitTool: gitToolName
+                    ])
+                }
             }
-        }
         stage('Build') {
             agent { label 'chrome-node' }
             steps {
