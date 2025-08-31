@@ -39,6 +39,19 @@ pipeline {
     }
 
     stages {
+        stage('Checkout') {
+            agent { label 'chrome-node' }
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/main"]],
+                    userRemoteConfigs: [[
+                        url: "https://github.com/izzatty/Project.git"
+                    ]],
+                    gitTool: "Git-Windows" 
+                ])
+            }
+        }
         stage('Build') {
             agent { label 'chrome-node' }
             steps {
