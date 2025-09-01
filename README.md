@@ -30,6 +30,8 @@ Follow the installation instructions.
 
 Access Jenkins at: http://localhost:8080
 
+---
+
 ### ⚙️ Step 2: Initial Setup
 
 - Unlock Jenkins using the administrator password shown in the console:
@@ -115,7 +117,7 @@ Access Jenkins at: http://localhost:8080
 ### 🚨 Error Handling and Monitoring
 
 - Use `try/finally` blocks to ensure essential steps are always executed
-  ```groovy
+  ```groovy```
   try {
     stage('Test') {
       // Run tests
@@ -125,7 +127,7 @@ Access Jenkins at: http://localhost:8080
       // Archive test results
     }
   }
-```groovy
+```groovy```
 post {
   success {
     echo 'Build passed!'
@@ -138,6 +140,8 @@ post {
 - Visual pipeline stages
 - Real-time monitoring
 - Clickable logs and UI
+
+---
 
 ## 🧩 Troubleshooting Guide
 
@@ -214,11 +218,11 @@ post {
 
 - **Throttle concurrent builds** using plugin or agent executor limits.
 - **Lock critical resources** to avoid conflicts between jobs:
-  ```groovy
+  ```groovy```
   lock('shared-database') {
     // Steps that require exclusive access
   }
- ```groovy
+ ```groovy```
 parallel {
   stage('Frontend Tests') {
     steps {
@@ -231,3 +235,4 @@ parallel {
     }
   }
 }
+
