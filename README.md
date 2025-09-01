@@ -1,34 +1,30 @@
-# Jenkins CI/CD Documentation
+# 🧰 Jenkins CI/CD Documentation
 
-## 1️⃣ Jenkins Setup Guide
+---
 
-### Step 1: Install Jenkins
+## 📦 Jenkins Setup Guide
 
-#### Using Docker
+### 🔧 Step 1: Install Jenkins
 
-Create a persistent volume:
+#### 🐳 Using Docker
 
-docker volume create jenkins_home
+- Create a persistent volume:
+  ```bash```
+  docker volume create jenkins_home
+  
+- Run the Jenkins container:
+```bash```
+  docker run -d -p 8080:8080 -p 50000:50000 --name jenkins \
+    -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts
 
+#### 🖥️ Using Native Installation
 
-Run the Jenkins container:
-
-docker run -d -p 8080:8080 -p 50000:50000 --name jenkins \
-  -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts
-
-Using Native Installation
-
-Download Jenkins from the official site
-.
-
-Ensure Java JDK 11+ is installed:
-
+- Download Jenkins from the official site
+- Ensure Java JDK 11+ is installed:
+```bash```
 java -version
-
-
-Follow the installation instructions.
-
-Access Jenkins at: http://localhost:8080
+- Follow the installation instructions.
+- Access Jenkins at: http://localhost:8080
 
 ---
 
@@ -218,11 +214,11 @@ post {
 
 - **Throttle concurrent builds** using plugin or agent executor limits.
 - **Lock critical resources** to avoid conflicts between jobs:
-  ```groovy```
+  ```bash```
   lock('shared-database') {
     // Steps that require exclusive access
   }
- ```groovy```
+ ```bash```
 parallel {
   stage('Frontend Tests') {
     steps {
@@ -235,4 +231,5 @@ parallel {
     }
   }
 }
+
 
