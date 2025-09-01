@@ -30,171 +30,204 @@ Follow the installation instructions.
 
 Access Jenkins at: http://localhost:8080
 
-Step 2: Initial Setup
-
-Unlock Jenkins using the administrator password shown in the console.
-
-Install suggested plugins.
-
-Configure global tools:
-
-Git (e.g., name: Git-Windows, path: C:\Program Files\Git\bin\git.exe)
-
-NodeJS (e.g., name: Node24)
-
-Step 3: Create Users and Credentials
-
-Create separate Jenkins users with appropriate roles.
-
-Use the Credentials Manager to store:
-
-GitHub tokens
-
-Docker credentials
-
-SSH keys or secret texts
-
-Step 4: Configure Agents
-
-Static Agents:
-
-Set up manually on physical or virtual machines.
-
-Must have all required tools installed.
-
-Dynamic Agents:
-
-Provisioned on-demand via Kubernetes or Docker.
-
-Scales automatically based on pipeline load.
-
-Use labels (e.g., chrome, linux) to control job routing.
-
-2️⃣ Pipeline Architecture Document
-Pipeline Design Decisions
-
-Multibranch Pipeline detects and builds all branches automatically.
-
-Each branch runs its own Jenkinsfile.
-
-Stages are used to ensure modular and testable steps.
-
-Stages Overview
-
-Cleanup Workspace – Ensures a clean environment.
-
-Checkout Code – Pulls the relevant branch from Git.
-
-Test – Installs dependencies and runs automated tests.
-
-Publish Reports – Archives HTML/Allure reports.
-
-Tools and Resources
-
-Git – Version control
-
-NodeJS – Script execution
-
-Agent Labels – chrome-node, firefox-node, etc.
-
-Lockable resources – Prevent job collisions
-
-Disable concurrent builds for job stability
-
-Error Handling and Monitoring
-
-Use try/finally blocks to ensure reports are always published.
-
-Use post blocks to:
-
-Notify success, failure, or unstable
-
-Enable parallel execution for independent steps.
-
-Use Blue Ocean for pipeline visualization.
-
-3️⃣ Troubleshooting Guide
-Common Pipeline Issues & Fixes
-
-SCM Checkout Failures:
-
-Cause: Missing Git or wrong pipeline type.
-
-Fix: Install Git and use Multibranch Pipeline.
-
-npm Install Errors:
-
-Cause: NodeJS not configured.
-
-Fix: Add NodeJS in Global Tool Config.
-
-Test Report Failures:
-
-Cause: Wrong report path.
-
-Fix: Check directory name/path in Jenkinsfile.
-
-Skipped Stages:
-
-Cause: Failure in earlier stage.
-
-Fix: Use error handling with try/catch.
-
-Offline Agents:
-
-Cause: Disconnected agent or label mismatch.
-
-Fix: Restart and check label config.
-
-CreateProcess Error=2:
-
-Cause: Missing executable in PATH.
-
-Fix: Update Jenkins Global Tool Configuration.
-
-4️⃣ Scaling Strategy
-Horizontal Scaling
-
-Add more Jenkins agents for parallel builds.
-
-Use meaningful labels like:
-
-linux, windows, chrome, etc.
-
-Dynamic Scaling
-
-Use Docker or Kubernetes for auto-scaling agents.
-
-Reduces idle time and adapts to workload size.
-
-Resource Management
-
-Throttle concurrent builds to prevent overload.
-
-Use lockable resources for exclusive access.
-
-Run parallel stages where possible to improve speed.
-
-Monitoring and Dashboards
-
-Use:
-
-Blue Ocean
-
-Build Monitor View
-
-Integrate notifications via:
-
-Slack
-
-Microsoft Teams
-
-Email
-
-Archiving and Maintenance
-
-Configure build discarder to clean up old builds.
-
-Auto-remove orphaned branches in Multibranch settings.
-
-Use shared libraries to reduce code duplication.
+### ⚙️ Step 2: Initial Setup
+
+- Unlock Jenkins using the administrator password shown in the console:
+  - Located at: `/var/jenkins_home/secrets/initialAdminPassword` (Docker)
+- Install **Suggested Plugins** when prompted
+- Configure required system tools via **Manage Jenkins > Global Tool Configuration**:
+  - Git (e.g., Name: `Git-Windows`, Path: `C:\Program Files\Git\bin\git.exe`)
+  - NodeJS (e.g., Name: `Node24`, Path to Node binary)
+
+---
+
+### 👥 Step 3: Create Users and Credentials
+
+- For security:
+  - Go to **Manage Jenkins > Manage Users** to add new users with roles
+- Store credentials under:
+  - **Manage Jenkins > Credentials > System > Global credentials**
+- Add types such as:
+  - **Username and Password**
+  - **Secret Text** (e.g., API keys)
+  - **SSH Username with Private Key**
+- Use credentials securely in pipelines using the `credentials()` helper function
+
+---
+
+### 🤖 Step 4: Configure Agents
+
+#### 🧱 Static Agents
+
+- Physical or virtual machines (manually configured)
+- Must:
+  - Have Java installed
+  - Be connected via JNLP or SSH
+  - Use matching **agent labels**
+
+#### ⚡ Dynamic Agents
+
+- Provisioned using:
+  - **Kubernetes plugin**
+  - **Docker plugin**
+- Advantages:
+  - Auto-scalable
+  - Lightweight and efficient
+- Use different labels for different purposes:
+  - `chrome-node`, `ubuntu-agent`, `firefox-runner`, etc.
+
+---
+
+## 🚀 Pipeline Architecture Document
+
+### 📐 Pipeline Design Decisions
+
+- Uses **Multibranch Pipeline**
+  - Detects all branches automatically
+  - Each branch runs its own `Jenkinsfile`
+- Promotes modular and isolated pipeline executions per branch
+
+---
+
+### 📊 Stages Overview
+
+1. **Cleanup Workspace** – Deletes any leftover files from previous runs
+2. **Checkout Code** – Pulls the specific branch using Git
+3. **Test** – Installs dependencies (e.g., via npm) and runs tests
+4. **Publish Reports** – Archives reports like:
+   - HTML test reports
+   - Allure results
+   - JUnit XML results
+
+---
+
+### 🛠️ Tools and Resources
+
+- **Git** – Handles SCM operations
+- **NodeJS** – Required for frontend/backend JavaScript projects
+- **Labels** – Direct builds to specific environments:
+  - e.g., `chrome`, `firefox`, `ubuntu`
+- **Lockable Resources Plugin** – Prevents race conditions
+- **Concurrency Control** – Disable concurrent builds for fragile jobs
+
+---
+
+### 🚨 Error Handling and Monitoring
+
+- Use `try/finally` blocks to ensure essential steps are always executed
+  ```groovy
+  try {
+    stage('Test') {
+      // Run tests
+    }
+  } finally {
+    stage('Publish Reports') {
+      // Archive test results
+    }
+  }
+```groovy
+post {
+  success {
+    echo 'Build passed!'
+  }
+  failure {
+    echo 'Build failed.'
+  }
+}
+- **Use Blue Ocean plugin for:**
+- Visual pipeline stages
+- Real-time monitoring
+- Clickable logs and UI
+
+## 🧩 Troubleshooting Guide
+
+### 🔍 Common Pipeline Issues & Fixes
+
+#### ❌ SCM Checkout Failures
+- **Cause**: Git is missing on the agent or you're using a standard pipeline instead of a Multibranch Pipeline.
+- **Fix**:
+  - Install Git on the agent.
+  - Use Multibranch Pipeline in Jenkins.
+
+#### ❌ npm Install Errors
+- **Cause**: NodeJS is not configured properly in Jenkins.
+- **Fix**:
+  - Go to **Manage Jenkins > Global Tool Configuration** and add NodeJS.
+  - Ensure the right version is used in the pipeline.
+
+#### ❌ Test Report Publishing Failures
+- **Cause**: Wrong path to report directory or files not generated.
+- **Fix**:
+  - Double-check the directory path in the `Jenkinsfile`.
+  - Use absolute or environment-specific paths if necessary.
+
+#### ❌ Skipped Stages
+- **Cause**: A previous stage failed, and `post`/`finally` blocks weren’t used.
+- **Fix**:
+  - Implement error handling using `try/finally` or `catchError` blocks.
+
+#### ❌ Offline Agents
+- **Cause**: Jenkins agent is not running or label mismatch.
+- **Fix**:
+  - Restart the agent machine or container.
+  - Ensure the label used in the `Jenkinsfile` matches the actual agent label.
+
+#### ❌ CreateProcess Error=2
+- **Cause**: An executable required by the pipeline is missing in the agent’s system PATH.
+- **Fix**:
+  - Configure the correct path using **Global Tool Configuration**.
+  - Make sure the tool is installed on the agent machine.
+
+---
+
+## 📈 Scaling Strategy
+
+### 🧱 Horizontal Scaling
+
+- Add more agents to execute multiple pipelines in parallel.
+- Use **agent labels** such as:
+  - `windows`, `linux`, `chrome`, `firefox`, `high-memory`
+- Distribute jobs efficiently based on labels.
+
+**Benefits:**
+- Reduce waiting time in the build queue.
+- Faster execution for teams running many builds.
+
+---
+
+### ⚡ Dynamic Scaling
+
+- Use dynamic provisioning tools like:
+  - **Kubernetes Plugin**
+  - **Docker Plugin**
+- Automatically provision agents when pipeline starts.
+- Automatically destroy agents after job completion.
+
+**Benefits:**
+- Cost-efficient
+- Scales with workload
+- No idle agents when not in use
+
+---
+
+### 📉 Resource Management
+
+- **Throttle concurrent builds** using plugin or agent executor limits.
+- **Lock critical resources** to avoid conflicts between jobs:
+  ```groovy
+  lock('shared-database') {
+    // Steps that require exclusive access
+  }
+ ```groovy
+parallel {
+  stage('Frontend Tests') {
+    steps {
+      sh 'npm run test:frontend'
+    }
+  }
+  stage('Backend Tests') {
+    steps {
+      sh 'npm run test:backend'
+    }
+  }
+}
