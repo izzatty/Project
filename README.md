@@ -1,29 +1,34 @@
-﻿# QA_Automation_Assessment
+# Jenkins CI/CD Documentation
 
-🧰 Jenkins CI/CD Documentation
-1️⃣ Jenkins Setup Guide
-Step 1: Install Jenkins
+## 1️⃣ Jenkins Setup Guide
 
-Using Docker:
+### Step 1: Install Jenkins
 
-Pull the Jenkins LTS image.
+#### Using Docker
 
-Create a persistent volume for the Jenkins home directory.
+Create a persistent volume:
 
-Run the container with:
+docker volume create jenkins_home
 
-Ports 8080 (web interface) and 50000 (agent communication) exposed.
 
-Native Installation:
+Run the Jenkins container:
 
-Download Jenkins from the official website
+docker run -d -p 8080:8080 -p 50000:50000 --name jenkins \
+  -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts
+
+Using Native Installation
+
+Download Jenkins from the official site
 .
 
-Ensure Java JDK 11 or higher is installed.
+Ensure Java JDK 11+ is installed:
 
-Follow installation instructions.
+java -version
 
-Access Jenkins via: http://localhost:8080.
+
+Follow the installation instructions.
+
+Access Jenkins at: http://localhost:8080
 
 Step 2: Initial Setup
 
@@ -31,163 +36,165 @@ Unlock Jenkins using the administrator password shown in the console.
 
 Install suggested plugins.
 
-Configure tools:
+Configure global tools:
 
-Git (e.g., name: Git-Windows, path to Git binary)
+Git (e.g., name: Git-Windows, path: C:\Program Files\Git\bin\git.exe)
 
-NodeJS (e.g., name: Node24, path to Node binary)
+NodeJS (e.g., name: Node24)
 
 Step 3: Create Users and Credentials
 
-Create separate Jenkins users with appropriate roles for security.
+Create separate Jenkins users with appropriate roles.
 
-Add credentials for:
+Use the Credentials Manager to store:
 
-GitHub
+GitHub tokens
 
-Docker
+Docker credentials
 
-Any third-party services
-
-Use Jenkins' Credentials Manager to securely store them for pipelines.
+SSH keys or secret texts
 
 Step 4: Configure Agents
 
 Static Agents:
 
-Pre-configured physical or virtual machines.
+Set up manually on physical or virtual machines.
 
-Must have required tools installed.
+Must have all required tools installed.
 
 Dynamic Agents:
 
-Provisioned on-demand using Kubernetes or Docker.
+Provisioned on-demand via Kubernetes or Docker.
 
-Auto-scalable for temporary workloads.
+Scales automatically based on pipeline load.
 
-Proper agent configuration improves distribution, reliability, and performance.
+Use labels (e.g., chrome, linux) to control job routing.
 
 2️⃣ Pipeline Architecture Document
 Pipeline Design Decisions
 
-Uses a Multibranch Pipeline to detect and build branches automatically.
+Multibranch Pipeline detects and builds all branches automatically.
 
 Each branch runs its own Jenkinsfile.
 
-Pipeline stages promote modularity and isolation.
+Stages are used to ensure modular and testable steps.
 
 Stages Overview
 
-Cleanup Workspace – Ensures clean environment.
+Cleanup Workspace – Ensures a clean environment.
 
-Checkout Code – Clones the correct branch.
+Checkout Code – Pulls the relevant branch from Git.
 
-Test – Installs dependencies and runs tests.
+Test – Installs dependencies and runs automated tests.
 
-Publish Reports – Generates HTML or Allure test reports.
+Publish Reports – Archives HTML/Allure reports.
 
 Tools and Resources
 
-Git for version control.
+Git – Version control
 
-NodeJS to run test scripts.
+NodeJS – Script execution
 
-Agent Labels (e.g., chrome-node, firefox-node) to direct jobs.
+Agent Labels – chrome-node, firefox-node, etc.
 
-Lockable resources prevent concurrency issues.
+Lockable resources – Prevent job collisions
 
-Concurrent builds are disabled for workspace stability.
+Disable concurrent builds for job stability
 
 Error Handling and Monitoring
 
-Use try/finally blocks to guarantee test report publication.
+Use try/finally blocks to ensure reports are always published.
 
 Use post blocks to:
 
-Send notifications.
+Notify success, failure, or unstable
 
-Log success/failure/unstable statuses.
+Enable parallel execution for independent steps.
 
-Enable parallel stages for independent tasks.
-
-Use Blue Ocean for real-time pipeline visualization.
+Use Blue Ocean for pipeline visualization.
 
 3️⃣ Troubleshooting Guide
 Common Pipeline Issues & Fixes
 
-SCM checkout failures:
+SCM Checkout Failures:
 
-Caused by missing Git or using standard pipeline instead of multibranch.
+Cause: Missing Git or wrong pipeline type.
 
-npm install errors:
+Fix: Install Git and use Multibranch Pipeline.
 
-NodeJS not configured correctly in Jenkins tools.
+npm Install Errors:
 
-Test report publishing failure:
+Cause: NodeJS not configured.
 
-Incorrect path to report files or directories.
+Fix: Add NodeJS in Global Tool Config.
 
-Skipped stages:
+Test Report Failures:
 
-Usually caused by a failed prior stage. Use proper error handling.
+Cause: Wrong report path.
 
-Offline agents:
+Fix: Check directory name/path in Jenkinsfile.
 
-Restart the agent.
+Skipped Stages:
 
-Ensure labels in Jenkinsfile match agent configuration.
+Cause: Failure in earlier stage.
 
-Executable path errors (e.g., CreateProcess error=2):
+Fix: Use error handling with try/catch.
 
-Jenkins cannot find the executable.
+Offline Agents:
 
-Fix: Add correct tool paths in Global Tool Configuration.
+Cause: Disconnected agent or label mismatch.
+
+Fix: Restart and check label config.
+
+CreateProcess Error=2:
+
+Cause: Missing executable in PATH.
+
+Fix: Update Jenkins Global Tool Configuration.
 
 4️⃣ Scaling Strategy
 Horizontal Scaling
 
-Add more Jenkins agents for parallel pipeline executions.
+Add more Jenkins agents for parallel builds.
 
-Label agents by capability:
+Use meaningful labels like:
 
-OS type
-
-Browser (e.g., chrome, firefox)
-
-Improves job distribution and execution time.
+linux, windows, chrome, etc.
 
 Dynamic Scaling
 
-Use Kubernetes or Docker to provision agents on-demand.
+Use Docker or Kubernetes for auto-scaling agents.
 
-Reduces idle resources.
-
-Scales up/down automatically based on workload.
+Reduces idle time and adapts to workload size.
 
 Resource Management
 
-Limit concurrent builds to avoid overload.
+Throttle concurrent builds to prevent overload.
 
-Use lockable resources to prevent shared resource conflicts.
+Use lockable resources for exclusive access.
 
-Enable parallel execution for independent tasks to boost throughput.
+Run parallel stages where possible to improve speed.
 
 Monitoring and Dashboards
 
-Blue Ocean and Build Monitor View plugins provide:
+Use:
 
-Real-time status
+Blue Ocean
 
-System health
+Build Monitor View
 
-Slack/Teams integration for instant build notifications.
+Integrate notifications via:
+
+Slack
+
+Microsoft Teams
+
+Email
 
 Archiving and Maintenance
 
-Use Build Discarder to limit stored builds.
+Configure build discarder to clean up old builds.
 
-Automatically remove orphaned branches.
+Auto-remove orphaned branches in Multibranch settings.
 
-Use Shared Libraries to reuse common pipeline logic and reduce duplication.
-
-
+Use shared libraries to reduce code duplication.
